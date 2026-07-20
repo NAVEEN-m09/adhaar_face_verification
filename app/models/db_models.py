@@ -21,32 +21,26 @@ class VerificationRecord(Base):
     __tablename__ = "verification_records"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    
-    # Encrypted fields
+
     provided_aadhaar = Column(String(255), nullable=False)
     extracted_aadhaar = Column(String(255), nullable=True)
     extracted_name = Column(String(255), nullable=True)
-    third_doc_name = Column(String(255), nullable=True) # Name extracted from 3rd document
-    
-    # Match flags
+    third_doc_name = Column(String(255), nullable=True)
+
     aadhaar_matched = Column(Boolean, default=False)
     third_doc_name_matched = Column(Boolean, default=None, nullable=True)
-    
-    # Path to local encrypted files
+
     selfie_path = Column(String(255), nullable=False)
     aadhaar_path = Column(String(255), nullable=False)
-    third_doc_path = Column(String(255), nullable=True) # Optional 3rd document path (Passbook/Passport)
-    
-    # Similarity Metrics
-    selfie_similarity = Column(Float, nullable=True)      # Cosine similarity between selfie and Aadhaar photo
-    third_doc_similarity = Column(Float, nullable=True)   # Cosine similarity between selfie and 3rd document photo
-    
-    # State and logs
-    status = Column(String(50), default="Pending")       # Success, Failed, Error
+    third_doc_path = Column(String(255), nullable=True)
+
+    selfie_similarity = Column(Float, nullable=True)
+    third_doc_similarity = Column(Float, nullable=True)
+
+    status = Column(String(50), default="Pending")
     error_message = Column(String(255), nullable=True)
-    
-    # Webhook callback log details
-    webhook_status = Column(String(50), default="Pending") # Pending, Sent, Failed, Skipped
-    webhook_response = Column(Float, nullable=True)        # Response status code
-    
+
+    webhook_status = Column(String(50), default="Pending")
+    webhook_response = Column(Float, nullable=True)
+
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

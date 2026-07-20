@@ -9,7 +9,6 @@ from app.config import settings
 from app.utils.logger import logger
 
 
-# Generate secure Fernet instance safely from config string
 def get_fernet_cipher() -> Fernet:
     """
     Safely generates a valid 32-byte URL-safe base64 key using SHA-256 hash of ENCRYPTION_KEY
@@ -22,7 +21,6 @@ def get_fernet_cipher() -> Fernet:
 
 cipher = get_fernet_cipher()
 
-# Text Cryptography
 def encrypt_text(text: str) -> str:
     if not text:
         return ""
@@ -43,7 +41,6 @@ def decrypt_text(encrypted_text: str) -> str:
         logger.error(f"Failed to decrypt text: {str(e)}")
         raise e
 
-# File Cryptography
 def encrypt_file(file_bytes: bytes) -> bytes:
     try:
         return cipher.encrypt(file_bytes)
@@ -58,7 +55,6 @@ def decrypt_file(encrypted_bytes: bytes) -> bytes:
         logger.error(f"Failed to decrypt file bytes: {str(e)}")
         raise e
 
-# Password Hashing via native PBKDF2-SHA256 (independent of passlib/bcrypt conflicts)
 def hash_password(password: str) -> str:
     salt = os.urandom(16)
     key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
@@ -74,7 +70,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except Exception:
         return False
 
-# JWT Authentication Tokens
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     if expires_delta:

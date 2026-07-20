@@ -11,7 +11,6 @@ class AadhaarOCR:
     def __init__(self):
         try:
             logger.info("Initializing PaddleOCR model...")
-            # Initialize PaddleOCR with english language, angle classifier enabled
             self.ocr_client = PaddleOCR(
                 use_angle_cls=True,
                 lang=settings.OCR_LANG,
@@ -28,20 +27,18 @@ class AadhaarOCR:
         """
         try:
             result = self.ocr_client.ocr(card_img)
-            
+
             extracted_lines = []
             if result and isinstance(result, list):
                 for item in result:
                     if not item:
                         continue
-                    # 1. New PaddleX v3 dictionary format support
                     if isinstance(item, dict) and "rec_texts" in item:
                         texts = item["rec_texts"]
                         if isinstance(texts, list):
                             for txt in texts:
                                 if isinstance(txt, str):
                                     extracted_lines.append(txt.strip())
-                    # 2. Legacy nested list format support
                     elif isinstance(item, list):
                         for res in item:
                             try:
@@ -51,7 +48,7 @@ class AadhaarOCR:
                                         extracted_lines.append(text_str.strip())
                             except Exception:
                                 continue
-                            
+
             logger.info(f"OCR: Extracted {len(extracted_lines)} lines of text.")
             return extracted_lines
         except Exception as e:

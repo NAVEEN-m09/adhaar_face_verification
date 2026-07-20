@@ -13,13 +13,10 @@ def validate_image_file(file: UploadFile) -> None:
     Validates the uploaded file's size, file extension, and MIME type.
     Raises HTTPException if validation fails.
     """
-    # 1. Validate File Size
-    # Read a chunk to see if it exceeds maximum size without reading everything into memory at once
-    # FastAPI UploadFile file is a SpooledTemporaryFile
     file.file.seek(0, os.SEEK_END)
     file_size = file.file.tell()
-    file.file.seek(0) # Reset to beginning
-    
+    file.file.seek(0)
+
     if file_size > settings.MAX_FILE_SIZE:
         max_mb = settings.MAX_FILE_SIZE / (1024 * 1024)
         logger.warning(f"File upload rejected: {file.filename} exceeds limit of {max_mb}MB. Size: {file_size} bytes")
@@ -28,7 +25,6 @@ def validate_image_file(file: UploadFile) -> None:
             detail=f"File size exceeds the limit of {max_mb} MB."
         )
 
-    # 2. Validate Extension
     filename = file.filename or ""
     file_ext = Path(filename).suffix.lower()
     if file_ext not in settings.ALLOWED_EXTENSIONS:
@@ -38,12 +34,10 @@ def validate_image_file(file: UploadFile) -> None:
             detail=f"Unsupported file extension {file_ext}. Allowed: {', '.join(settings.ALLOWED_EXTENSIONS)}"
         )
 
-    # 3. Validate MIME Type
-    # Guess mime type from filename
     mime_type, _ = mimetypes.guess_type(filename)
     if not mime_type:
         mime_type = file.content_type
-        
+
     if mime_type not in settings.ALLOWED_MIME_TYPES:
         logger.warning(f"File upload rejected: {file.filename} has unsupported MIME type {mime_type}")
         raise HTTPException(
@@ -69,7 +63,6 @@ async def read_image_from_upload(file: UploadFile) -> np.ndarray:
             detail="Invalid image format or corrupted image file."
         )
     finally:
-        # Reset file pointer so it can be read again if needed
         await file.seek(0)
 
 def save_temp_image(img: np.ndarray, prefix: str = "temp") -> Path:

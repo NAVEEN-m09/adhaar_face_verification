@@ -2,7 +2,6 @@ import re
 from typing import Optional, Tuple
 from app.utils.logger import logger
 
-# Verhoeff Algorithm Tables for Aadhaar validation
 VERHOEFF_D = [
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
     [1, 2, 3, 4, 0, 6, 7, 8, 9, 5],
@@ -32,7 +31,7 @@ class RegexValidator:
     Validates and extracts Aadhaar numbers from OCR texts.
     Performs verification against user input and validates the Verhoeff checksum.
     """
-    
+
     @staticmethod
     def validate_verhoeff(number: str) -> bool:
         """
@@ -40,7 +39,7 @@ class RegexValidator:
         """
         if not number.isdigit() or len(number) != 12:
             return False
-        
+
         c = 0
         for i, digit in enumerate(reversed(number)):
             c = VERHOEFF_D[c][VERHOEFF_P[i % 8][int(digit)]]
@@ -51,24 +50,18 @@ class RegexValidator:
         Extracts a valid 12-digit Aadhaar number from lines of text.
         Returns the clean 12-digit string if found, otherwise None.
         """
-        # Formats to look for:
-        # 1. 12 digits with spaces: \b\d{4}\s\d{4}\s\d{4}\b
-        # 2. 12 digits with dashes: \b\d{4}-\d{4}-\d{4}\b
-        # 3. 12 digits continuous: \b\d{12}\b
-        
+
         patterns = [
             re.compile(r'\b\d{4}\s\d{4}\s\d{4}\b'),
             re.compile(r'\b\d{4}-\d{4}-\d{4}\b'),
             re.compile(r'\b\d{12}\b')
         ]
 
-        # First pass: try exact regex on each line
         for line in text_lines:
             for pattern in patterns:
                 match = pattern.search(line)
                 if match:
                     matched_str = match.group(0)
-                    # Clean it
                     clean_num = re.sub(r'[-\s]', '', matched_str)
                     if self.validate_verhoeff(clean_num):
                         logger.info("RegexValidator: Extracted valid Verhoeff-checksummed Aadhaar number.")
@@ -76,8 +69,6 @@ class RegexValidator:
                     else:
                         logger.warning("RegexValidator: Found Aadhaar-like number, but failed Verhoeff checksum validation.")
 
-        # Second pass: strip all whitespaces from each line and look for 12 consecutive digits
-        # This handles cases where OCR split spaces strangely
         for line in text_lines:
             cleaned_line = re.sub(r'[-\s]', '', line)
             match = re.search(r'\d{12}', cleaned_line)
@@ -96,12 +87,11 @@ class RegexValidator:
             - matched: boolean indicating if they match
             - status_msg: message explaining the match status
         """
-        # Clean the provided number
         clean_provided = re.sub(r'[-\s]', '', provided)
-        
+
         if len(clean_provided) != 12 or not clean_provided.isdigit():
             return False, "Provided Aadhaar number is invalid. Must be 12 digits."
-            
+
         if not self.validate_verhoeff(clean_provided):
             return False, "Provided Aadhaar number failed Verhoeff checksum validation."
 

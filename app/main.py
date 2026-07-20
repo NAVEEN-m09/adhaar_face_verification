@@ -27,10 +27,8 @@ async def lifespan(app: FastAPI):
     """
     logger.info("Initializing database schemas...")
     try:
-        # Create all tables in SQLite
         Base.metadata.create_all(bind=engine)
-        
-        # Seed default admin user if none exists
+
         db = SessionLocal()
         try:
             admin_user = db.query(AdminUser).filter(AdminUser.username == "admin").first()
@@ -42,34 +40,29 @@ async def lifespan(app: FastAPI):
                 db.commit()
         finally:
             db.close()
-            
+
     except Exception as e:
         logger.error(f"Failed to initialize database: {str(e)}")
 
     logger.info("Starting up server and loading models...")
     try:
-        # Load and cache models in app.state
         app.state.detector = AadhaarDetector()
         app.state.perspective = PerspectiveCorrector()
         app.state.photo_cropper = PhotoCropper()
         app.state.ocr = AadhaarOCR()
         app.state.regex = RegexValidator()
         app.state.face_matcher = FaceMatcher()
-        
-        # Warm up models to eliminate first-request cold-start latency
+
         logger.info("Pre-warming models to eliminate cold-start latency...")
         dummy_img = np.zeros((100, 100, 3), dtype=np.uint8)
-        # Warm YOLO Card detector
         _, _, _ = app.state.detector.detect(dummy_img)
-        # Warm PaddleOCR text extractor
         _ = app.state.ocr.extract_text(dummy_img)
-        # Warm InsightFace embeddings
         _, _ = app.state.face_matcher.get_embedding(dummy_img, "dummy")
-        
+
         logger.info("All models loaded and pre-warmed successfully. Server ready.")
     except Exception as e:
         logger.critical(f"Failed to load models during startup: {str(e)}", exc_info=True)
-        
+
     yield
     logger.info("Shutting down server and releasing models...")
 
@@ -80,7 +73,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -89,12 +81,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Size limiting middleware
 app.add_middleware(LimitUploadSizeMiddleware)
 
-# Register routes
 app.include_router(verify_router)
 app.include_router(dashboard_router)
 
-# Serve SPA Frontend
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")

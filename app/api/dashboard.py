@@ -11,10 +11,10 @@ from app.config import settings
 from app.database import get_db
 from app.models.db_models import AdminUser, VerificationRecord
 from app.utils.security_utils import (
-    verify_password, 
-    create_access_token, 
-    verify_access_token, 
-    decrypt_text, 
+    verify_password,
+    create_access_token,
+    verify_access_token,
+    decrypt_text,
     decrypt_file
 )
 from app.utils.logger import logger
@@ -39,32 +39,30 @@ def get_current_admin(
     Dependency to authenticate dashboard users.
     Supports standard Bearer Token headers or direct 'token' query parameters.
     """
-    # 1. Check Authorization header
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
-        
-    # 2. Fallback to query parameter (needed for loading image tag sources)
+
     if not token:
         token = request.query_params.get("token")
-        
+
     if not token:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication token is missing."
         )
-        
+
     payload = verify_access_token(token)
     if not payload or "sub" not in payload:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired authentication token."
         )
-        
+
     user = db.query(AdminUser).filter(AdminUser.username == payload["sub"]).first()
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User session is invalid."
         )
     return user
@@ -80,7 +78,7 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password"
         )
-    
+
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -90,7 +88,7 @@ def get_records(db: Session = Depends(get_db), current_user: AdminUser = Depends
     API route to list all database records with decrypted sensitive values.
     """
     records = db.query(VerificationRecord).order_by(VerificationRecord.created_at.desc()).all()
-    
+
     result = []
     for r in records:
         result.append({
@@ -112,7 +110,7 @@ def get_records(db: Session = Depends(get_db), current_user: AdminUser = Depends
             "has_third_doc": bool(r.third_doc_path),
             "created_at": r.created_at.isoformat() if r.created_at else None
         })
-        
+
     return result
 
 @router.get("/api/records/export")
@@ -121,7 +119,7 @@ def export_records(db: Session = Depends(get_db), current_user: AdminUser = Depe
     Export all verification logs as a decrypted Excel sheet.
     """
     records = db.query(VerificationRecord).order_by(VerificationRecord.created_at.desc()).all()
-    
+
     data = []
     for r in records:
         data.append({
@@ -139,16 +137,15 @@ def export_records(db: Session = Depends(get_db), current_user: AdminUser = Depe
             "Overall Status": r.status,
             "Created At": r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else "N/A"
         })
-        
+
     df = pd.DataFrame(data)
-    
-    # Write to a buffer using openpyxl
+
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Verification Logs')
-        
+
     output.seek(0)
-    
+
     headers = {
         'Content-Disposition': 'attachment; filename="verification_logs.xlsx"',
         'Access-Control-Expose-Headers': 'Content-Disposition'
@@ -173,7 +170,7 @@ def get_decrypted_image(
     record = db.query(VerificationRecord).filter(VerificationRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
-        
+
     file_path = None
     if img_type == "selfie":
         file_path = record.selfie_path
@@ -183,23 +180,20 @@ def get_decrypted_image(
         file_path = record.third_doc_path
     else:
         raise HTTPException(status_code=400, detail="Invalid image type specifier")
-        
+
     if not file_path or not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Image file not found on disk")
-        
+
     try:
-        # Read encrypted bytes
         with open(file_path, "rb") as f:
             encrypted_data = f.read()
-            
-        # Decrypt bytes
+
         decrypted_data = decrypt_file(encrypted_data)
-        
-        # Deduce MIME type (typically jpg)
+
         media_type = "image/jpeg"
         if file_path.endswith(".png"):
             media_type = "image/png"
-            
+
         return Response(content=decrypted_data, media_type=media_type)
     except Exception as e:
         logger.error(f"Error serving decrypted image: {str(e)}")

@@ -4,11 +4,9 @@ from fastapi.testclient import TestClient
 import numpy as np
 import cv2
 
-# We'll import the app but mock the startup lifespans or model loads
 from app.main import app
 from app.config import settings
 
-# Dynamically generate valid PNG bytes to satisfy image decoding checks during route testing
 _, encoded_img = cv2.imencode('.png', np.zeros((10, 10, 3), dtype=np.uint8))
 VALID_PNG_BYTES = encoded_img.tobytes()
 
@@ -24,7 +22,6 @@ def mock_app_state():
     Mock the machine learning services stored in app.state to avoid loading
     massive models during unit testing.
     """
-    # Create mocks for all services
     mock_detector = MagicMock()
     mock_perspective = MagicMock()
     mock_photo_cropper = MagicMock()
@@ -32,10 +29,9 @@ def mock_app_state():
     mock_regex = MagicMock()
     mock_face_matcher = MagicMock()
 
-    # Configure defaults
     mock_detector.detect.return_value = (
-        np.zeros((100, 200, 3), dtype=np.uint8), # mock card crop
-        np.zeros((30, 30, 3), dtype=np.uint8),   # mock photo crop
+        np.zeros((100, 200, 3), dtype=np.uint8),
+        np.zeros((30, 30, 3), dtype=np.uint8),
         {"aadhaar_card_detected": True, "aadhaar_photo_detected": True, "fallback_used": False}
     )
     mock_perspective.correct.return_value = np.zeros((100, 200, 3), dtype=np.uint8)
@@ -52,7 +48,6 @@ def mock_app_state():
         "aadhaar_face_detected": True
     }
 
-    # Inject mock state into the app
     app.state.detector = mock_detector
     app.state.perspective = mock_perspective
     app.state.photo_cropper = mock_photo_cropper
@@ -77,8 +72,7 @@ def test_root_route():
 
 def test_verify_endpoint_success(mock_app_state):
     client = TestClient(app)
-    
-    # Send mock files and data using valid PNG bytes
+
     files = {
         "selfie_image": ("selfie.jpg", VALID_PNG_BYTES, "image/jpeg"),
         "aadhaar_image": ("aadhaar.jpg", VALID_PNG_BYTES, "image/jpeg"),
@@ -86,9 +80,9 @@ def test_verify_endpoint_success(mock_app_state):
     data = {
         "aadhaar_number": "3662 1019 8051"
     }
-    
+
     response = client.post("/verify", files=files, data=data)
-    
+
     assert response.status_code == 200
     res_json = response.json()
     assert res_json["success"] is True
@@ -100,8 +94,7 @@ def test_verify_endpoint_success(mock_app_state):
 
 def test_verify_endpoint_invalid_file_type(mock_app_state):
     client = TestClient(app)
-    
-    # Send a text file instead of an image
+
     files = {
         "selfie_image": ("selfie.txt", b"fake_selfie_data", "text/plain"),
         "aadhaar_image": ("aadhaar.jpg", VALID_PNG_BYTES, "image/jpeg"),
@@ -109,17 +102,16 @@ def test_verify_endpoint_invalid_file_type(mock_app_state):
     data = {
         "aadhaar_number": "3662 1019 8051"
     }
-    
+
     response = client.post("/verify", files=files, data=data)
     assert response.status_code == 415
     assert "unsupported" in response.json()["detail"].lower()
 
 def test_verify_endpoint_request_size_limit(mock_app_state):
     client = TestClient(app)
-    
-    # Generate large payload exceeding MAX_FILE_SIZE limit (set to 10MB in settings)
+
     large_data = b"0" * (settings.MAX_FILE_SIZE + 1024)
-    
+
     files = {
         "selfie_image": ("selfie.jpg", large_data, "image/jpeg"),
         "aadhaar_image": ("aadhaar.jpg", VALID_PNG_BYTES, "image/jpeg"),
@@ -127,16 +119,14 @@ def test_verify_endpoint_request_size_limit(mock_app_state):
     data = {
         "aadhaar_number": "3662 1019 8051"
     }
-    
+
     response = client.post("/verify", files=files, data=data)
-    # The custom size limit middleware should return 413 Payload Too Large
     assert response.status_code == 413
     assert response.json()["success"] is False
     assert "exceeds" in response.json()["error"].lower()
 
 def test_admin_login_success():
     client = TestClient(app)
-    # Seed user is created on app lifespan or manual db call
     from app.database import SessionLocal
     from app.models.db_models import AdminUser
     from app.utils.security_utils import hash_password
@@ -169,11 +159,9 @@ def test_get_records_unauthorized():
 
 def test_get_records_authorized():
     client = TestClient(app)
-    # 1. Login to get token
     login_res = client.post("/api/login", json={"username": "test_admin", "password": "password123"})
     token = login_res.json()["access_token"]
 
-    # 2. Insert mock record in db to test decryption
     from app.database import SessionLocal
     from app.models.db_models import VerificationRecord
     from app.utils.security_utils import encrypt_text
@@ -197,13 +185,11 @@ def test_get_records_authorized():
     finally:
         db.close()
 
-    # 3. Retrieve decrypted logs
     headers = {"Authorization": f"Bearer {token}"}
     response = client.get("/api/records", headers=headers)
     assert response.status_code == 200
     records = response.json()
-    
-    # Verify target record was found and decrypted successfully
+
     target_rec = next((r for r in records if r["id"] == record_id), None)
     assert target_rec is not None
     assert target_rec["provided_aadhaar"] == "123456789012"
@@ -223,7 +209,7 @@ def test_verify_identity_async(mock_app_state):
         "aadhaar_number": "366210198051",
         "callback_url": "http://example.com/callback"
     }
-    
+
     response = client.post("/verify-async", files=files, data=data)
     assert response.status_code == 202
     res_data = response.json()
@@ -236,12 +222,10 @@ def test_export_records(mock_app_state):
     Verifies that authenticated clients can retrieve decrypted Excel exports of logs.
     """
     client = TestClient(app)
-    
-    # 1. Login to get access token
+
     response = client.post("/api/login", json={"username": "admin", "password": "admin123"})
     token = response.json()["access_token"]
-    
-    # 2. Call export endpoint
+
     headers = {"Authorization": f"Bearer {token}"}
     response = client.get("/api/records/export", headers=headers)
     assert response.status_code == 200

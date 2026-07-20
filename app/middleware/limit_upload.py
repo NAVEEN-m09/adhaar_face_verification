@@ -30,7 +30,6 @@ class LimitUploadSizeMiddleware(BaseHTTPMiddleware):
                             }
                         )
                 except ValueError:
-                    # Ignore invalid content-length headers
                     pass
-                    
+
         return await call_next(request)

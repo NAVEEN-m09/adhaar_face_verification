@@ -18,7 +18,6 @@ async def trigger_webhook(record_id: str, custom_callback_url: Optional[str] = N
     url = custom_callback_url or settings.WEBHOOK_URL
     if not url:
         logger.info("Webhook: Skipping trigger (no webhook/callback URL configured).")
-        # Update db record status
         db = SessionLocal()
         try:
             record = db.query(VerificationRecord).filter(VerificationRecord.id == record_id).first()
@@ -31,14 +30,13 @@ async def trigger_webhook(record_id: str, custom_callback_url: Optional[str] = N
 
     logger.info(f"Webhook: Triggering callback for record ID: {record_id}...")
     db = SessionLocal()
-    
+
     try:
         record = db.query(VerificationRecord).filter(VerificationRecord.id == record_id).first()
         if not record:
             logger.error(f"Webhook: Record {record_id} not found in database.")
             return
 
-        # Prepare payload
         payload = {
             "record_id": record.id,
             "status": record.status,
@@ -63,9 +61,8 @@ async def trigger_webhook(record_id: str, custom_callback_url: Optional[str] = N
             }
         }
 
-        # Dispatch async POST request with retry logic
         attempts = 3
-        backoff = 2.0  # initial sleep in seconds
+        backoff = 2.0
         success = False
         last_status_code = None
 
@@ -87,22 +84,20 @@ async def trigger_webhook(record_id: str, custom_callback_url: Optional[str] = N
                         logger.warning(f"Webhook: Attempt {attempt} returned status {response.status_code}")
             except Exception as exc:
                 logger.warning(f"Webhook: Attempt {attempt} failed with exception: {str(exc)}")
-            
-            # If not last attempt, wait before retrying
+
             if attempt < attempts:
                 logger.info(f"Webhook: Sleeping {backoff} seconds before retry...")
                 await asyncio.sleep(backoff)
-                backoff *= 2.0  # exponential backoff
+                backoff *= 2.0
 
-        # Record final response state
         record.webhook_status = "Sent" if success else "Failed"
         record.webhook_response = last_status_code
-            
+
     except Exception as e:
         logger.error(f"Webhook: Failed dispatching callback event: {str(e)}")
         if record:
             record.webhook_status = "Failed"
-            
+
     finally:
         db.commit()
         db.close()

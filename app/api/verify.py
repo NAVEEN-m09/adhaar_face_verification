@@ -10,17 +10,17 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.schemas.response import (
-    VerificationResponse, 
-    FaceMatchResult, 
-    AadhaarResult, 
-    ThirdDocumentResult, 
-    ProcessingMeta, 
+    VerificationResponse,
+    FaceMatchResult,
+    AadhaarResult,
+    ThirdDocumentResult,
+    ProcessingMeta,
     AsyncVerificationResponse
 )
 from app.utils.image_utils import (
-    validate_image_file, 
-    read_image_from_upload, 
-    save_temp_image, 
+    validate_image_file,
+    read_image_from_upload,
+    save_temp_image,
     delete_temp_files
 )
 from app.utils.logger import logger
@@ -38,7 +38,6 @@ from app.utils.security_utils import encrypt_text, encrypt_file
 
 router = APIRouter()
 
-# Dependency Injections
 def get_detector(request: Request) -> AadhaarDetector:
     return request.app.state.detector
 
@@ -65,16 +64,13 @@ def extract_name_from_mrz(line: str) -> Optional[str]:
     PPCOLTOBON<RODRIGUEZ<<CLAUDIA<MARCELA... -> CLAUDIA MARCELA TOBON RODRIGUEZ
     """
     line = line.replace(" ", "").upper()
-    # Check if this line looks like a Passport Type 3 MRZ Line 1
-    # Standard Passport MRZ Line 1 is 44 characters and starts with P
     if len(line) >= 30 and (line.startswith("P<") or line.startswith("PP")):
-        # Strip document type indicator (2 chars) and country code (3 chars)
         name_part = line[5:]
         parts = name_part.split("<<")
         if len(parts) >= 2:
             surname = parts[0].replace("<", " ").strip()
             given_names = parts[1].split("<<<")[0].replace("<", " ").strip()
-            
+
             full_name = f"{given_names} {surname}".strip()
             full_name = re.sub(r"\s+", " ", full_name)
             if full_name:
@@ -86,7 +82,6 @@ def extract_name_from_ocr(text_lines: list[str]) -> str:
     Extracts a card holder's name from Aadhaar/Passport OCR text by filtering out
     common keywords, structural labels, and prioritizing MRZ parsing or multi-word lines.
     """
-    # 1. Try to parse Passport MRZ first
     for line in text_lines:
         clean_line = line.replace(" ", "").upper()
         if "<" in clean_line and (clean_line.startswith("P<") or clean_line.startswith("PP")):
@@ -96,40 +91,34 @@ def extract_name_from_ocr(text_lines: list[str]) -> str:
                 return mrz_name
 
     exclude_keywords = {
-        "government", "india", "dob", "date", "birth", "male", "female", 
-        "father", "husband", "address", "unique", "identification", "help", 
+        "government", "india", "dob", "date", "birth", "male", "female",
+        "father", "husband", "address", "unique", "identification", "help",
         "enrollment", "number", "card", "signature", "authority", "document",
         "passport", "republic", "given", "surname", "name", "national", "state",
         "holder", "photo", "identity", "issue", "validity", "expiry", "sex"
     }
-    
+
     cleaned_candidates = []
     for line in text_lines:
         clean_line = line.strip()
         if not clean_line:
             continue
-        # Ignore lines containing numbers (e.g. Aadhaar numbers or dates)
         if any(char.isdigit() for char in clean_line):
             continue
-            
-        # Clean up non-alphabetic chars except spaces and dots
+
         sanitized = re.sub(r"[^a-zA-Z\s\.]", "", clean_line).strip()
         sanitized = re.sub(r"\s+", " ", sanitized)
-        
+
         if len(sanitized) < 3:
             continue
-            
-        # Check if line matches any exclude keyword
+
         words = sanitized.split()
         if any(w.lower() in exclude_keywords for w in words):
             continue
-            
-        # If words consist only of letters and dots
+
         if all(re.match(r"^[a-zA-Z\.]+$", w) for w in words):
             cleaned_candidates.append(sanitized)
-            
-    # Pass 1: Prioritize Premium Candidates (Title Case / UPPERCASE names)
-    # (To filter out lowercase OCR translations of local scripts like "wregha srut")
+
     for cand in cleaned_candidates:
         words = cand.split()
         if len(words) >= 2:
@@ -137,20 +126,18 @@ def extract_name_from_ocr(text_lines: list[str]) -> str:
             uppercase_words = sum(1 for w in words if w[0].isupper())
             if long_words >= 2 and uppercase_words >= 2:
                 return cand
-                
-    # Pass 2: Fallback to any multi-word candidate meeting length criteria
+
     for cand in cleaned_candidates:
         words = cand.split()
         if len(words) >= 2:
             long_words = sum(1 for w in words if len(w.replace(".", "")) >= 3)
             if long_words >= 2:
                 return cand
-                
-    # Pass 3: Fallback to single-word cand if no multi-word exists
+
     for cand in cleaned_candidates:
-        if len(cand) >= 4:  # Ensure it is at least 4 characters to ignore short codes like IND
+        if len(cand) >= 4:
             return cand
-            
+
     return ""
 
 def verify_name_overlap(name1: str, name2: str) -> bool:
@@ -190,49 +177,42 @@ async def verify_identity(
 ):
     start_time = time.time()
     temp_files = []
-    
+
     try:
-        # 1. Validation of request inputs (size & type)
         validate_image_file(selfie_image)
         validate_image_file(aadhaar_image)
         if third_document:
             validate_image_file(third_document)
-        
-        # 2. Read images into NumPy/OpenCV arrays
+
         logger.info("Reading selfie and Aadhaar images...")
         selfie_img = await read_image_from_upload(selfie_image)
         aadhaar_img = await read_image_from_upload(aadhaar_image)
-        
-        # 3. Detect Aadhaar card and crop it
+
         logger.info("Running Aadhaar card detection...")
         card_crop, initial_photo_crop, detect_status = detector.detect(aadhaar_img)
-        
+
         if card_crop is None:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"success": False, "error": "Aadhaar card not detected"}
             )
-            
-        # 4. Correct Perspective of Aadhaar Card
+
         logger.info("Applying perspective correction on card...")
         corrected_card = perspective.correct(card_crop)
-        
-        # 5. Crop Photo from the corrected Aadhaar card
+
         logger.info("Cropping face photo from corrected Aadhaar card...")
         model_to_use = None if detect_status["fallback_used"] else detector.model
         photo_crop = photo_cropper.crop_photo(corrected_card, yolo_model=model_to_use)
-        
+
         if photo_crop is None or photo_crop.size == 0:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"success": False, "error": "No Aadhaar photo detected"}
             )
-            
-        # Optional: Save crops as temp files if we want to log file paths or debug
+
         temp_photo_path = save_temp_image(photo_crop, prefix="cropped_photo")
         temp_files.append(temp_photo_path)
 
-        # 6. Extract text via PaddleOCR
         logger.info("Running PaddleOCR on corrected Aadhaar card...")
         ocr_texts = ocr.extract_text(corrected_card)
         if not ocr_texts:
@@ -243,7 +223,6 @@ async def verify_identity(
 
         extracted_name = extract_name_from_ocr(ocr_texts)
 
-        # 7. Extract & Validate Aadhaar Number via Regex and Verhoeff Checksum
         logger.info("Extracting Aadhaar number via Regex and Verhoeff...")
         extracted_aadhaar = regex.extract_aadhaar_number(ocr_texts)
         if not extracted_aadhaar:
@@ -251,21 +230,18 @@ async def verify_identity(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"success": False, "error": "Aadhaar number not found"}
             )
-            
-        # Verify match between extracted and provided Aadhaar number
+
         aadhaar_matched, match_msg = regex.verify_match(extracted_aadhaar, aadhaar_number)
-        
-        # 8. Match Face: compare selfie vs Aadhaar photo using InsightFace
+
         logger.info("Matching face embeddings between selfie and Aadhaar photo...")
         match_result = face_matcher.match_faces(selfie_img, photo_crop)
-        
+
         if not match_result["success"]:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"success": False, "error": match_result["error"]}
             )
 
-        # 9. Process Optional Third Document (Bank Passbook / Passport)
         third_doc_result = None
         extracted_third_name = None
         third_name_matched = None
@@ -276,18 +252,15 @@ async def verify_identity(
         if third_document:
             logger.info("Processing optional third document (passbook/passport)...")
             third_img = await read_image_from_upload(third_document)
-            
-            # OCR Name Extraction from Third Document
+
             third_ocr_texts = ocr.extract_text(third_img)
             extracted_third_name = extract_name_from_ocr(third_ocr_texts)
-            
-            # Match Names
+
             if extracted_third_name and extracted_name:
                 third_name_matched = verify_name_overlap(extracted_name, extracted_third_name)
             else:
                 third_name_matched = False
-                
-            # Face verification on Third Document against Selfie
+
             third_match_res = face_matcher.match_faces(selfie_img, third_img)
             if third_match_res["success"]:
                 third_similarity = third_match_res["similarity"]
@@ -295,7 +268,7 @@ async def verify_identity(
             else:
                 third_similarity = 0.0
                 third_face_matched = False
-                
+
             third_doc_result = ThirdDocumentResult(
                 provided=True,
                 extracted_name=extracted_third_name or "Unknown",
@@ -308,31 +281,28 @@ async def verify_identity(
                 provided=False
             )
 
-        # 10. Generate record ID and encrypt all files before writing to disk
         record_id = str(uuid.uuid4())
         selfie_filename = f"selfie_{record_id}.bin"
         aadhaar_filename = f"aadhaar_{record_id}.bin"
         third_doc_filename = f"third_{record_id}.bin" if third_document else None
-        
+
         selfie_path = settings.UPLOAD_DIR / selfie_filename
         aadhaar_path = settings.UPLOAD_DIR / aadhaar_filename
         third_doc_path = settings.UPLOAD_DIR / third_doc_filename if third_doc_filename else None
-        
-        # Read original files to encrypt
+
         await selfie_image.seek(0)
         selfie_bytes = await selfie_image.read()
         encrypted_selfie = encrypt_file(selfie_bytes)
-        
+
         await aadhaar_image.seek(0)
         aadhaar_bytes = await aadhaar_image.read()
         encrypted_aadhaar = encrypt_file(aadhaar_bytes)
-        
-        # Write encrypted binary files to folder
+
         with open(selfie_path, "wb") as f:
             f.write(encrypted_selfie)
         with open(aadhaar_path, "wb") as f:
             f.write(encrypted_aadhaar)
-            
+
         if third_document:
             await third_document.seek(0)
             third_bytes = await third_document.read()
@@ -340,7 +310,6 @@ async def verify_identity(
             with open(third_doc_path, "wb") as f:
                 f.write(encrypted_third)
 
-        # 11. Create DB record
         overall_status = "Failed"
         if aadhaar_matched and match_result["matched"]:
             if third_document:
@@ -365,16 +334,15 @@ async def verify_identity(
             status=overall_status,
             webhook_status="Pending"
         )
-        
+
         db.add(record)
         db.commit()
 
-        # 12. Trigger callback in background
         background_tasks.add_task(trigger_webhook, record_id)
 
         processing_time = round(time.time() - start_time, 2)
         logger.info(f"Verification pipeline completed in {processing_time}s.")
-        
+
         response_data = VerificationResponse(
             success=True,
             record_id=record_id,
@@ -412,7 +380,6 @@ async def verify_identity(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"success": False, "error": f"Internal processing error: {str(e)}"}
         )
-        # Delete temporary crops created during request execution
         delete_temp_files(*temp_files)
 
 async def run_async_pipeline(
@@ -436,10 +403,9 @@ async def run_async_pipeline(
     """
     logger.info(f"Async Pipeline: Starting background analysis for record ID: {record_id}...")
     temp_files = []
-    
+
     db = SessionLocal()
     try:
-        # 1. Load and decrypt files from disk
         logger.info(f"Async Pipeline: Reading encrypted selfie from {selfie_path}")
         with open(selfie_path, "rb") as f:
             enc_selfie_bytes = f.read()
@@ -454,17 +420,14 @@ async def run_async_pipeline(
         nparr_aadhaar = np.frombuffer(aadhaar_bytes, np.uint8)
         aadhaar_img = cv2.imdecode(nparr_aadhaar, cv2.IMREAD_COLOR)
 
-        # 2. Run Aadhaar card detection & crop
         logger.info("Async Pipeline: Running Aadhaar card detection...")
         card_crop, initial_photo_crop, detect_status = detector.detect(aadhaar_img)
         if card_crop is None:
             raise Exception("Aadhaar card not detected")
 
-        # 3. Correct perspective
         logger.info("Async Pipeline: Correcting card perspective...")
         corrected_card = perspective.correct(card_crop)
 
-        # 4. Crop face photo
         logger.info("Async Pipeline: Cropping face photo...")
         model_to_use = None if detect_status["fallback_used"] else detector.model
         photo_crop = photo_cropper.crop_photo(corrected_card, yolo_model=model_to_use)
@@ -474,7 +437,6 @@ async def run_async_pipeline(
         temp_photo_path = save_temp_image(photo_crop, prefix="cropped_photo_async")
         temp_files.append(temp_photo_path)
 
-        # 5. Extract text via PaddleOCR
         logger.info("Async Pipeline: Running OCR...")
         ocr_texts = ocr.extract_text(corrected_card)
         if not ocr_texts:
@@ -482,7 +444,6 @@ async def run_async_pipeline(
 
         extracted_name = extract_name_from_ocr(ocr_texts)
 
-        # 6. Extract & Validate Aadhaar Number
         logger.info("Async Pipeline: Extracting Aadhaar UID...")
         extracted_aadhaar = regex.extract_aadhaar_number(ocr_texts)
         if not extracted_aadhaar:
@@ -490,13 +451,11 @@ async def run_async_pipeline(
 
         aadhaar_matched, _ = regex.verify_match(extracted_aadhaar, provided_aadhaar)
 
-        # 7. Compare Selfie vs Aadhaar Photo
         logger.info("Async Pipeline: Comparing selfie and Aadhaar photo...")
         match_result = face_matcher.match_faces(selfie_img, photo_crop)
         if not match_result["success"]:
             raise Exception(match_result["error"])
 
-        # 8. Process Optional Third Document
         third_doc_result = None
         extracted_third_name = None
         third_name_matched = None
@@ -529,7 +488,6 @@ async def run_async_pipeline(
                 third_similarity = 0.0
                 third_face_matched = False
 
-        # 9. Update database record with analysis outcomes
         overall_status = "Failed"
         if aadhaar_matched and match_result["matched"]:
             if third_doc_path:
@@ -561,7 +519,6 @@ async def run_async_pipeline(
     finally:
         db.close()
         delete_temp_files(*temp_files)
-        # Trigger webhook callback
         await trigger_webhook(record_id, custom_callback_url=callback_url)
 
 
@@ -597,7 +554,6 @@ async def verify_identity_async(
     are saved to the database and pushed to the webhook callback URL.
     """
     try:
-        # 1. Validation of request inputs (size & type)
         validate_image_file(selfie_image)
         validate_image_file(aadhaar_image)
         if third_document:
@@ -612,8 +568,6 @@ async def verify_identity_async(
         aadhaar_path = settings.UPLOAD_DIR / aadhaar_filename
         third_doc_path = settings.UPLOAD_DIR / third_doc_filename if third_doc_filename else None
 
-        # 2. Encrypt and save files to disk immediately in the request thread
-        # (This is required because FastAPI cleans up upload files upon request return)
         selfie_bytes = await selfie_image.read()
         encrypted_selfie = encrypt_file(selfie_bytes)
         with open(selfie_path, "wb") as f:
@@ -630,7 +584,6 @@ async def verify_identity_async(
             with open(third_doc_path, "wb") as f:
                 f.write(encrypted_third)
 
-        # 3. Create db record in Pending state
         record = VerificationRecord(
             id=record_id,
             provided_aadhaar=encrypt_text(aadhaar_number),
@@ -650,7 +603,6 @@ async def verify_identity_async(
         db.add(record)
         db.commit()
 
-        # 4. Spawn background pipeline task
         background_tasks.add_task(
             run_async_pipeline,
             record_id=record_id,
