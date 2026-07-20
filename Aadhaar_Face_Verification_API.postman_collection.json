@@ -1,0 +1,78 @@
+{
+	"info": {
+		"_postman_id": "4b6dfcb8-278b-4a5e-9988-be909675276e",
+		"name": "Aadhaar Face Verification API",
+		"description": "Collection for testing the production-ready Aadhaar Face Verification REST API.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Verify Identity",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "selfie_image",
+							"description": "Live/Selfie photograph of the user (PNG, JPG, JPEG)",
+							"type": "file",
+							"src": []
+						},
+						{
+							"key": "aadhaar_image",
+							"description": "Uploaded image of the Aadhaar card (front side)",
+							"type": "file",
+							"src": []
+						},
+						{
+							"key": "aadhaar_number",
+							"value": "3662 1019 8051",
+							"description": "12-digit Aadhaar number for verification",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/verify",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"verify"
+					]
+				},
+				"description": "POST endpoint that runs the identity verification pipeline including YOLO card/face detection, OCR text reading, regex matching, and face similarity matching using InsightFace."
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	]
+}

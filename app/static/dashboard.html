@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KYC Administrative Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0b10;
+            --bg-secondary: rgba(17, 18, 27, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --accent-color: #3b82f6;
+            --text-primary: #f3f4f6;
+            --text-muted: #9ca3af;
+            --status-success: #10b981;
+            --status-failed: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(147, 51, 234, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: rgba(10, 11, 16, 0.7);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .logout-btn {
+            background: transparent;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #f87171;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .export-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+        }
+
+        .export-btn:active {
+            transform: translateY(0);
+        }
+
+        .main-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            padding: 2rem;
+            gap: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .records-panel {
+            background: var(--bg-secondary);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            height: fit-content;
+        }
+
+        .panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #93c5fd;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            padding: 0.75rem 1rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            font-size: 0.9rem;
+        }
+
+        tr {
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-badge.success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+
+        .status-badge.failed {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+
+        /* Detail Panel */
+        .detail-panel {
+            background: var(--bg-secondary);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 1.5rem;
+            position: sticky;
+            top: 100px;
+            height: calc(100vh - 140px);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .detail-placeholder {
+            margin: auto;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .detail-header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .detail-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #93c5fd;
+            margin-bottom: 0.25rem;
+        }
+
+        .detail-time {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .section-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .detail-row span:first-child {
+            color: var(--text-muted);
+        }
+
+        .detail-row span:last-child {
+            font-weight: 500;
+        }
+
+        /* Image Display Grid */
+        .images-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .image-wrapper {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.5rem;
+            text-align: center;
+        }
+
+        .image-wrapper img {
+            max-width: 100%;
+            max-height: 180px;
+            border-radius: 8px;
+            margin-top: 0.5rem;
+            cursor: zoom-in;
+            background: #181824;
+        }
+
+        .image-wrapper span {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: block;
+        }
+
+        .info-card {
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid rgba(255,255,255,0.04);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-logo">KYC Management Dashboard</div>
+        <div class="header-actions">
+            <span id="adminName" style="color: var(--text-muted);">Admin Session</span>
+            <button class="export-btn" onclick="exportExcel()">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display:inline-block; vertical-align:middle; margin-right:4px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Export Excel
+            </button>
+            <button class="logout-btn" onclick="logout()">Log Out</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Records List Table -->
+        <div class="records-panel">
+            <h2 class="panel-title">Verification Pipeline Logs</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Created At</th>
+                            <th>Aadhaar UID</th>
+                            <th>Name (Aadhaar)</th>
+                            <th>3rd Doc Name</th>
+                            <th>Selfie similarity</th>
+                            <th>Webhook</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-muted);">Loading logs...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Single Record Detail Side-Panel -->
+        <div class="detail-panel" id="detailPanel">
+            <div class="detail-placeholder">
+                <p>Select a verification row to view full decrypted metadata and images.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem("admin_token");
+        if (!token) {
+            window.location.href = "login.html";
+        }
+
+        function logout() {
+            localStorage.removeItem("admin_token");
+            window.location.href = "login.html";
+        }
+
+        // Parse token username if possible
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const payload = JSON.parse(window.atob(base64));
+            if (payload && payload.sub) {
+                document.getElementById("adminName").textContent = `Admin: ${payload.sub}`;
+            }
+        } catch (e) {}
+
+        let currentRecords = [];
+
+        async function fetchRecords() {
+            try {
+                const response = await fetch("/api/records", {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                if (response.ok) {
+                    currentRecords = await response.json();
+                    renderTable(currentRecords);
+                } else {
+                    alert("Failed to load records.");
+                }
+            } catch (err) {
+                console.error("Network error:", err);
+            }
+        }
+
+        function renderTable(records) {
+            const tbody = document.getElementById("recordsTableBody");
+            if (records.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No records found.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = records.map((r, index) => {
+                const dateStr = new Date(r.created_at).toLocaleString();
+                const statusClass = r.status.toLowerCase() === 'success' ? 'success' : 'failed';
+                const selfieSim = r.selfie_similarity ? `${r.selfie_similarity.toFixed(1)}%` : 'N/A';
+                
+                return `
+                    <tr onclick="showDetail(${index})">
+                        <td>${dateStr}</td>
+                        <td style="font-family: monospace;">${r.provided_aadhaar}</td>
+                        <td>${r.extracted_name}</td>
+                        <td>${r.has_third_doc ? r.third_doc_name : 'N/A'}</td>
+                        <td>${selfieSim}</td>
+                        <td>
+                            <span class="status-badge ${r.webhook_status.toLowerCase() === 'sent' ? 'success' : 'failed'}">
+                                ${r.webhook_status} (${r.webhook_response || 'N/A'})
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge ${statusClass}">${r.status}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function showDetail(index) {
+            const r = currentRecords[index];
+            const detailPanel = document.getElementById("detailPanel");
+            
+            const dateStr = new Date(r.created_at).toLocaleString();
+            const selfieSim = r.selfie_similarity ? `${r.selfie_similarity.toFixed(1)}%` : 'N/A';
+            const thirdSim = r.third_doc_similarity ? `${r.third_doc_similarity.toFixed(1)}%` : 'N/A';
+
+            detailPanel.innerHTML = `
+                <div class="detail-header">
+                    <h3 class="detail-title">Record: ${r.id.substring(0, 8)}...</h3>
+                    <span class="detail-time">Created: ${dateStr}</span>
+                </div>
+
+                <div class="info-card">
+                    <h4 class="section-label">Aadhaar Data</h4>
+                    <div class="detail-row">
+                        <span>Provided UID:</span>
+                        <span style="font-family: monospace;">${r.provided_aadhaar}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Extracted UID:</span>
+                        <span style="font-family: monospace;">${r.extracted_aadhaar}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Extracted Name:</span>
+                        <span>${r.extracted_name}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>UID Match:</span>
+                        <span class="status-badge ${r.aadhaar_matched ? 'success' : 'failed'}">${r.aadhaar_matched ? 'MATCHED' : 'MISMATCH'}</span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h4 class="section-label">3rd Document Details</h4>
+                    ${r.has_third_doc ? `
+                        <div class="detail-row">
+                            <span>Extracted Name:</span>
+                            <span>${r.third_doc_name}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Name Match:</span>
+                            <span class="status-badge ${r.third_doc_name_matched ? 'success' : 'failed'}">${r.third_doc_name_matched ? 'MATCHED' : 'MISMATCH'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Selfie Similarity:</span>
+                            <span>${thirdSim}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Face Match:</span>
+                            <span class="status-badge ${r.third_doc_matched ? 'success' : 'failed'}">${r.third_doc_matched ? 'MATCHED' : 'MISMATCH'}</span>
+                        </div>
+                    ` : `
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">No third document provided.</div>
+                    `}
+                </div>
+
+                <div class="info-card">
+                    <h4 class="section-label">Face Verification</h4>
+                    <div class="detail-row">
+                        <span>Selfie vs Aadhaar:</span>
+                        <span>${selfieSim}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Face Match Decision:</span>
+                        <span class="status-badge ${r.face_matched ? 'success' : 'failed'}">${r.face_matched ? 'MATCHED' : 'MISMATCH'}</span>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h4 class="section-label">Callback Logging</h4>
+                    <div class="detail-row">
+                        <span>Webhook Status:</span>
+                        <span>${r.webhook_status}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>API Response:</span>
+                        <span>${r.webhook_response || 'None'}</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="section-label">Decrypted Files (Symmetric Decryption)</h4>
+                    <div class="images-grid">
+                        <div class="image-wrapper">
+                            <span>Decrypted Selfie Image</span>
+                            <img src="/api/records/${r.id}/image/selfie?token=${token}" alt="Decrypted Selfie">
+                        </div>
+                        <div class="image-wrapper">
+                            <span>Decrypted Aadhaar Card</span>
+                            <img src="/api/records/${r.id}/image/aadhaar?token=${token}" alt="Decrypted Aadhaar">
+                        </div>
+                        ${r.has_third_doc ? `
+                            <div class="image-wrapper">
+                                <span>Decrypted Third Document</span>
+                                <img src="/api/records/${r.id}/image/third?token=${token}" alt="Decrypted Third Document">
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function exportExcel() {
+            try {
+                const response = await fetch("/api/records/export", {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+                
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `verification_logs_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    alert("Failed to export logs.");
+                }
+            } catch (err) {
+                console.error("Export error:", err);
+                alert("An error occurred during export.");
+            }
+        }
+
+        // Fetch logs on page load
+        fetchRecords();
+    </script>
+</body>
+</html>

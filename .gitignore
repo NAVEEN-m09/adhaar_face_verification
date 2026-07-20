@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+
+# Database and uploaded files
+verification.db
+uploads/*.bin
+uploads/*.jpg
+uploads/*.png
+outputs/*
+
+# Local Environment Variables
+.env
+.env.winning
+
+# Models and weights
+*.pt
+*.onnx
+C:\Users\unkal\.paddlex/

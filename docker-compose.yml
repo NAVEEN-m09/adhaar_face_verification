@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  aadhaar-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aadhaar_verification_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+    environment:
+      - APP_NAME=Aadhaar Face Verification API
+      - DEBUG=False
+      - PORT=8000
+      - HOST=0.0.0.0
+      - FACE_SIMILARITY_THRESHOLD=0.40
+      - MAX_FILE_SIZE=10485760 # 10MB
+    restart: unless-stopped

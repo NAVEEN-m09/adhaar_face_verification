@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aadhaar Face Verification Portal</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-success: #10b981;
+            --accent-error: #ef4444;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            background: radial-gradient(circle at top right, #1e1b4b 0%, var(--bg-primary) 60%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+            overflow-x: hidden;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        main {
+            width: 100%;
+            max-width: 1100px;
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 850px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--bg-secondary);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #93c5fd;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .text-input {
+            width: 100%;
+            background: rgba(31, 41, 55, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            color: white;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+            background: rgba(31, 41, 55, 0.8);
+        }
+
+        /* Toggle Button Group */
+        .toggle-container {
+            display: flex;
+            background: rgba(31, 41, 55, 0.5);
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 1.25rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .toggle-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.6rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .toggle-btn.active {
+            background: var(--accent-blue);
+            color: white;
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Media Source Containers */
+        .source-container {
+            position: relative;
+            background: rgba(0,0,0,0.25);
+            border: 2px dashed var(--border-color);
+            border-radius: 16px;
+            aspect-ratio: 4/3;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .source-container:hover {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.03);
+        }
+
+        .source-container input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        .upload-text {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 0 1rem;
+        }
+
+        .preview-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        /* Webcam Container */
+        .webcam-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror camera feed */
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            height: 70%;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+
+        .capture-btn {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            color: black;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .capture-btn:hover {
+            transform: translateX(-50%) scale(1.05);
+            background: #f3f4f6;
+        }
+
+        /* Verify Action Button */
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 1.1rem;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1rem;
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.5);
+        }
+
+        .submit-btn:disabled {
+            background: #1f2937;
+            color: #4b5563;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Results Panel */
+        .results-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            height: 100%;
+        }
+
+        .result-placeholder {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            min-height: 400px;
+            color: var(--text-muted);
+            text-align: center;
+            border: 2px dashed rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid var(--accent-blue);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Success & Fail states */
+        .result-details {
+            display: none;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            padding: 1rem;
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-badge.match {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-badge.no-match {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-error);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        /* Circular Match Meter */
+        .meter-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .radial-meter {
+            position: relative;
+            width: 150px;
+            height: 150px;
+        }
+
+        .radial-meter svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .radial-meter circle {
+            fill: none;
+            stroke-width: 10;
+        }
+
+        .radial-meter .bg-circle {
+            stroke: rgba(255,255,255,0.05);
+        }
+
+        .radial-meter .progress-circle {
+            stroke: var(--accent-blue);
+            stroke-dasharray: 440;
+            stroke-dashoffset: 440;
+            stroke-linecap: round;
+        }
+
+        .radial-meter .percentage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .radial-meter .percentage-lbl {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* Data list styling */
+        .data-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .data-card-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #93c5fd;
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .data-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .data-label {
+            color: var(--text-muted);
+        }
+
+        .data-value {
+            font-weight: 500;
+        }
+
+        .data-value.success-text {
+            color: var(--accent-success);
+        }
+
+        .data-value.error-text {
+            color: var(--accent-error);
+        }
+
+        /* Error Banner */
+        .error-banner {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            color: #fca5a5;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+            display: none;
+            text-align: center;
+        }
+
+        /* Flash Animation */
+        .flash {
+            animation: camera-flash 0.15s ease-out;
+        }
+
+        @keyframes camera-flash {
+            0% { background-color: rgba(255,255,255,0.9); }
+            100% { background-color: transparent; }
+        }
+    </style>
+</head>
+<body>
+
+    <header style="display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 1100px; margin: 0 auto 2rem auto; padding: 0 1rem;">
+        <div>
+            <h1 style="font-size: 2.2rem; font-weight: 700; background: linear-gradient(135deg, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Aadhaar Identity Verification</h1>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">Production-Grade Face Matching & Multidocument Verification Portal</p>
+        </div>
+        <div>
+            <a href="login.html" style="color: #60a5fa; text-decoration: none; font-weight: 600; font-size: 0.9rem; border: 1px solid rgba(96, 165, 250, 0.3); padding: 0.6rem 1.2rem; border-radius: 12px; transition: all 0.25s ease; background: rgba(96, 165, 250, 0.03);" onmouseover="this.style.background='rgba(96, 165, 250, 0.1)'; this.style.borderColor='rgba(96, 165, 250, 0.6)'" onmouseout="this.style.background='rgba(96, 165, 250, 0.03)'; this.style.borderColor='rgba(96, 165, 250, 0.3)'">Admin Dashboard</a>
+        </div>
+    </header>
+
+    <main>
+        <!-- INPUT/SUBMISSION PANEL -->
+        <div class="panel">
+            <div class="section-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Identity Verification Setup
+            </div>
+
+            <!-- Aadhaar Number -->
+            <div class="input-group">
+                <label for="aadhaarNum">Aadhaar Card Number (12 Digits)</label>
+                <input type="text" id="aadhaarNum" class="text-input" placeholder="0000 0000 0000" maxlength="14" autocomplete="off">
+            </div>
+
+            <!-- Aadhaar Image Upload -->
+            <div class="input-group">
+                <label>Upload Aadhaar Card Image (Front Side)</label>
+                <div class="source-container" id="aadhaarContainer">
+                    <input type="file" id="aadhaarFile" accept="image/*">
+                    <div class="upload-elements" id="aadhaarUploadElements">
+                        <div class="upload-icon">🪪</div>
+                        <div class="upload-text">Drag & drop or click to upload Aadhaar card</div>
+                    </div>
+                    <img id="aadhaarPreview" class="preview-img" alt="Aadhaar Preview">
+                </div>
+            </div>
+
+            <!-- Selfie Selection (Webcam vs Upload) -->
+            <div class="input-group">
+                <label>Selfie Verification Photo</label>
+                <div class="toggle-container">
+                    <button type="button" class="toggle-btn active" id="btnWebcam">Live Camera</button>
+                    <button type="button" class="toggle-btn" id="btnUploadSelfie">Upload Photo</button>
+                </div>
+
+                <!-- Live Camera Source -->
+                <div class="source-container" id="selfieCameraContainer">
+                    <div class="webcam-wrapper" id="webcamWrapper">
+                        <video id="webcam" autoplay playsinline></video>
+                        <div class="camera-overlay"></div>
+                        <button type="button" class="capture-btn" id="captureBtn">
+                            📸 Capture Frame
+                        </button>
+                    </div>
+                    <div class="upload-elements" id="cameraStartText">
+                        <div class="upload-icon">🎥</div>
+                        <div class="upload-text">Waiting for camera access...</div>
+                    </div>
+                    <img id="selfiePreview" class="preview-img" alt="Selfie Preview">
+                </div>
+
+                <!-- File Upload Source (hidden initially) -->
+                <div class="source-container" id="selfieUploadContainer" style="display: none;">
+                    <input type="file" id="selfieFile" accept="image/*">
+                    <div class="upload-elements">
+                        <div class="upload-icon">👤</div>
+                        <div class="upload-text">Drag & drop or click to upload selfie</div>
+                    </div>
+                    <img id="selfieUploadPreview" class="preview-img" alt="Selfie Preview">
+                </div>
+            </div>
+
+            <!-- Optional 3rd Document Upload -->
+            <div class="input-group">
+                <label>Upload Bank Passbook Image (Optional)</label>
+                <div class="source-container" id="thirdDocContainer">
+                    <input type="file" id="thirdDocFile" accept="image/*" style="display: none;">
+                    <div class="upload-elements" id="thirdDocUploadElements">
+                        <div class="upload-icon">📖</div>
+                        <div class="upload-text">Drag & drop or click to upload Bank Passbook</div>
+                    </div>
+                    <img id="thirdDocPreview" class="preview-img" alt="Third Document Preview">
+                </div>
+            </div>
+
+            <button type="button" class="submit-btn" id="verifyBtn" disabled>Run Verification Pipeline</button>
+        </div>
+
+        <!-- RESULTS PANEL -->
+        <div class="panel">
+            <div class="section-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                Verification Output
+            </div>
+
+            <div class="results-container">
+                <!-- Idle State Placeholder -->
+                <div class="result-placeholder" id="placeholder">
+                    <div class="spinner" id="loadingSpinner"></div>
+                    <div id="placeholderText">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+                        <h3>Awaiting Pipeline Execution</h3>
+                        <p style="margin-top: 0.5rem; font-size: 0.9rem;">Fill in the Aadhaar number, upload images/capture live selfie, and hit verify.</p>
+                    </div>
+                </div>
+
+                <!-- Error Banner -->
+                <div class="error-banner" id="errorBanner"></div>
+
+                <!-- Result Details (Shown when success) -->
+                <div class="result-details" id="resultDetails">
+                    
+                    <div class="status-badge" id="statusBadge"></div>
+
+                    <!-- Similarity Meter -->
+                    <div class="meter-container">
+                        <div class="radial-meter">
+                            <svg>
+                                <circle class="bg-circle" cx="75" cy="75" r="70"></circle>
+                                <circle class="progress-circle" id="meterProgress" cx="75" cy="75" r="70"></circle>
+                            </svg>
+                            <div class="percentage">
+                                <span id="percentText">0%</span>
+                                <span class="percentage-lbl">Match</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Face Match Info -->
+                    <div class="data-card">
+                        <div class="data-card-title">Face Verification</div>
+                        <div class="data-row">
+                            <span class="data-label">Similarity Score</span>
+                            <span class="data-value" id="resSimilarity">0%</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">Decision Threshold</span>
+                            <span class="data-value">40.00%</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">Result Decision</span>
+                            <span class="data-value" id="resMatchDecision">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Aadhaar OCR Info -->
+                    <div class="data-card">
+                        <div class="data-card-title">Aadhaar Validation</div>
+                        <div class="data-row">
+                            <span class="data-label">Provided Number</span>
+                            <span class="data-value" id="resProvided">1234 5678 9012</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">Extracted Number</span>
+                            <span class="data-value" id="resExtracted">1234 5678 9012</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">OCR Matching Status</span>
+                            <span class="data-value" id="resAadhaarMatch">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Third Document Info -->
+                    <div class="data-card" id="thirdDocResCard" style="display: none;">
+                        <div class="data-card-title">3rd Document Validation</div>
+                        <div class="data-row">
+                            <span class="data-label">Extracted Name</span>
+                            <span class="data-value" id="resThirdName">-</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">Name Matching</span>
+                            <span class="data-value" id="resThirdNameMatch">-</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">Selfie Similarity</span>
+                            <span class="data-value" id="resThirdFaceScore">-</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">Face Matching</span>
+                            <span class="data-value" id="resThirdFaceMatch">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Pipeline Logs / Stats -->
+                    <div class="data-card">
+                        <div class="data-card-title">Pipeline Metadata</div>
+                        <div class="data-row">
+                            <span class="data-label">Selfie Face Detected</span>
+                            <span class="data-value" id="statSelfieFace">-</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">Aadhaar Photo Detected</span>
+                            <span class="data-value" id="statAadhaarFace">-</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">OCR Extraction</span>
+                            <span class="data-value" id="statOCR">-</span>
+                        </div>
+                        <div class="data-row">
+                            <span class="data-label">Total Processing Time</span>
+                            <span class="data-value" id="resTime">0.00s</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // DOM Elements
+        const aadhaarNumInput = document.getElementById('aadhaarNum');
+        const aadhaarFileInput = document.getElementById('aadhaarFile');
+        const aadhaarContainer = document.getElementById('aadhaarContainer');
+        const aadhaarPreview = document.getElementById('aadhaarPreview');
+        const aadhaarUploadElements = document.getElementById('aadhaarUploadElements');
+
+        const btnWebcam = document.getElementById('btnWebcam');
+        const btnUploadSelfie = document.getElementById('btnUploadSelfie');
+        const selfieCameraContainer = document.getElementById('selfieCameraContainer');
+        const selfieUploadContainer = document.getElementById('selfieUploadContainer');
+        const webcamWrapper = document.getElementById('webcamWrapper');
+        const cameraStartText = document.getElementById('cameraStartText');
+        const webcam = document.getElementById('webcam');
+        const captureBtn = document.getElementById('captureBtn');
+        const selfiePreview = document.getElementById('selfiePreview');
+        const selfieFile = document.getElementById('selfieFile');
+        const selfieUploadPreview = document.getElementById('selfieUploadPreview');
+
+        const verifyBtn = document.getElementById('verifyBtn');
+        const thirdDocFile = document.getElementById('thirdDocFile');
+        const thirdDocContainer = document.getElementById('thirdDocContainer');
+        const thirdDocUploadElements = document.getElementById('thirdDocUploadElements');
+        const thirdDocPreview = document.getElementById('thirdDocPreview');
+        const placeholder = document.getElementById('placeholder');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const placeholderText = document.getElementById('placeholderText');
+        const errorBanner = document.getElementById('errorBanner');
+        const resultDetails = document.getElementById('resultDetails');
+
+        // State variables
+        let localStream = null;
+        let selectedAadhaarBlob = null;
+        let selectedSelfieBlob = null;
+        let selectedThirdDocBlob = null;
+        let activeSelfieMode = 'webcam'; // 'webcam' or 'upload'
+
+        // 1. Format Aadhaar Card Input: Add spaces every 4 digits
+        aadhaarNumInput.addEventListener('input', (e) => {
+            let target = e.target;
+            let position = target.selectionStart;
+            let val = target.value.replace(/\D/g, '');
+            let newVal = '';
+            for (let i = 0; i < val.length; i++) {
+                if (i > 0 && i % 4 === 0) {
+                    newVal += ' ';
+                }
+                newVal += val[i];
+            }
+            target.value = newVal;
+            
+            // Adjust cursor position
+            if (position && newVal.charAt(position - 1) === ' ') {
+                target.selectionStart = position + 1;
+            }
+            
+            checkValidity();
+        });
+
+        // 2. Aadhaar File Selection Preview
+        aadhaarFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                selectedAadhaarBlob = file;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    aadhaarPreview.src = event.target.result;
+                    aadhaarPreview.style.display = 'block';
+                    aadhaarUploadElements.style.display = 'none';
+                    checkValidity();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 3. Selfie Selection Source Toggle
+        btnWebcam.addEventListener('click', () => {
+            btnWebcam.classList.add('active');
+            btnUploadSelfie.classList.remove('active');
+            selfieCameraContainer.style.display = 'flex';
+            selfieUploadContainer.style.display = 'none';
+            activeSelfieMode = 'webcam';
+            startWebcam();
+            checkValidity();
+        });
+
+        btnUploadSelfie.addEventListener('click', () => {
+            btnUploadSelfie.classList.add('active');
+            btnWebcam.classList.remove('active');
+            selfieCameraContainer.style.display = 'none';
+            selfieUploadContainer.style.display = 'flex';
+            activeSelfieMode = 'upload';
+            stopWebcam();
+            checkValidity();
+        });
+
+        // 4. Selfie File Upload Selector
+        selfieFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                selectedSelfieBlob = file;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    selfieUploadPreview.src = event.target.result;
+                    selfieUploadPreview.style.display = 'block';
+                    checkValidity();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 4.5 Third Document Selector & Drag-Drop Handling
+        thirdDocContainer.addEventListener('click', () => thirdDocFile.click());
+        thirdDocFile.addEventListener('change', (e) => handleThirdDocUpload(e.target.files[0]));
+
+        thirdDocContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            thirdDocContainer.style.borderColor = 'var(--accent-blue)';
+        });
+        thirdDocContainer.addEventListener('dragleave', () => {
+            thirdDocContainer.style.borderColor = 'var(--border-color)';
+        });
+        thirdDocContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            thirdDocContainer.style.borderColor = 'var(--border-color)';
+            handleThirdDocUpload(e.dataTransfer.files[0]);
+        });
+
+        function handleThirdDocUpload(file) {
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                showError('Please upload an image file (JPEG/PNG)');
+                return;
+            }
+            selectedThirdDocBlob = file;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                thirdDocPreview.src = event.target.result;
+                thirdDocPreview.style.display = 'block';
+                thirdDocUploadElements.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 5. Webcam Operations
+        async function startWebcam() {
+            try {
+                if (localStream) stopWebcam();
+                
+                cameraStartText.style.display = 'flex';
+                webcamWrapper.style.display = 'none';
+                selfiePreview.style.display = 'none';
+                
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: "user" }
+                });
+                
+                webcam.srcObject = localStream;
+                cameraStartText.style.display = 'none';
+                webcamWrapper.style.display = 'block';
+            } catch (err) {
+                console.error("Camera error:", err);
+                cameraStartText.innerHTML = `
+                    <div class="upload-icon" style="color: var(--accent-error)">⚠️</div>
+                    <div class="upload-text" style="color: #fca5a5">Camera Access Denied: ${err.message}. Please upload a photo instead.</div>
+                `;
+            }
+        }
+
+        function stopWebcam() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            webcam.srcObject = null;
+        }
+
+        // Capture photo from webcam
+        captureBtn.addEventListener('click', () => {
+            // Apply a brief camera flash animation
+            selfieCameraContainer.classList.add('flash');
+            setTimeout(() => selfieCameraContainer.classList.remove('flash'), 150);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = webcam.videoWidth || 640;
+            canvas.height = webcam.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw mirrored image to match user orientation
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(webcam, 0, 0, canvas.width, canvas.height);
+            
+            // Output blob
+            canvas.toBlob((blob) => {
+                selectedSelfieBlob = blob;
+                const dataUrl = canvas.toDataURL('image/jpeg');
+                selfiePreview.src = dataUrl;
+                selfiePreview.style.display = 'block';
+                webcamWrapper.style.display = 'none';
+                
+                stopWebcam();
+                checkValidity();
+            }, 'image/jpeg', 0.95);
+        });
+
+        // 6. Form Validity Checking
+        function checkValidity() {
+            const isAadhaarNumValid = aadhaarNumInput.value.replace(/\s/g, '').length === 12;
+            const isAadhaarImgUploaded = selectedAadhaarBlob !== null;
+            
+            let isSelfieReady = false;
+            if (activeSelfieMode === 'webcam') {
+                isSelfieReady = selectedSelfieBlob !== null && webcamWrapper.style.display === 'none';
+            } else {
+                isSelfieReady = selectedSelfieBlob !== null;
+            }
+
+            verifyBtn.disabled = !(isAadhaarNumValid && isAadhaarImgUploaded && isSelfieReady);
+        }
+
+        // Initialize webcam on load
+        startWebcam();
+
+        // 7. Verify Pipeline Request Trigger
+        verifyBtn.addEventListener('click', async () => {
+            // Setup Loading States
+            verifyBtn.disabled = true;
+            placeholder.style.display = 'flex';
+            loadingSpinner.style.display = 'block';
+            placeholderText.style.opacity = '0.3';
+            placeholderText.querySelector('h3').textContent = 'Processing Pipeline...';
+            placeholderText.querySelector('p').textContent = 'Running YOLO detector, correcting perspectives, extracting OCR text, and computing face similarities. Please wait.';
+            
+            errorBanner.style.display = 'none';
+            resultDetails.style.display = 'none';
+
+            const formData = new FormData();
+            
+            // Clean up Aadhaar number spaces
+            const cleanAadhaar = aadhaarNumInput.value.replace(/\s/g, '');
+            formData.append('aadhaar_number', cleanAadhaar);
+            formData.append('aadhaar_image', selectedAadhaarBlob, 'aadhaar.jpg');
+            formData.append('selfie_image', selectedSelfieBlob, 'selfie.jpg');
+            if (selectedThirdDocBlob) {
+                formData.append('third_document', selectedThirdDocBlob, 'third_doc.jpg');
+            }
+
+            try {
+                const response = await fetch('/verify', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Success render
+                    renderResults(data);
+                } else {
+                    // Business validation or HTTP pipeline failure
+                    showError(data.error || 'Identity verification pipeline failed. Please check inputs.');
+                }
+            } catch (err) {
+                console.error("API error:", err);
+                showError('Network connectivity error. Could not connect to API server.');
+            } finally {
+                verifyBtn.disabled = false;
+                loadingSpinner.style.display = 'none';
+                placeholderText.style.opacity = '1';
+            }
+        });
+
+        // 8. Renders verification results
+        function renderResults(data) {
+            placeholder.style.display = 'none';
+            errorBanner.style.display = 'none';
+            resultDetails.style.display = 'block';
+
+            // Match badge & design elements
+            const badge = document.getElementById('statusBadge');
+            let match = data.face_match.matched && data.aadhaar.matched;
+            if (data.third_document && data.third_document.provided) {
+                match = match && data.third_document.name_matched && data.third_document.matched;
+            }
+            
+            if (match) {
+                badge.className = 'status-badge match';
+                badge.innerHTML = '✅ Identity Fully Verified';
+            } else {
+                badge.className = 'status-badge no-match';
+                let reason = '';
+                if (!data.face_match.matched) reason = 'Face Mismatch';
+                else if (!data.aadhaar.matched) reason = 'Aadhaar Mismatch';
+                else if (data.third_document && data.third_document.provided) {
+                    if (!data.third_document.name_matched) reason = '3rd Doc Name Mismatch';
+                    else if (!data.third_document.matched) reason = '3rd Doc Face Mismatch';
+                }
+                badge.innerHTML = `❌ Verification Failed: ${reason || 'Details Mismatched'}`;
+            }
+
+            // Radial Meter Score Progress
+            const progressCircle = document.getElementById('meterProgress');
+            const percentText = document.getElementById('percentText');
+            const similarity = data.face_match.similarity;
+            
+            percentText.innerText = `${similarity}%`;
+            // Circle circumference = 2 * PI * r = 2 * PI * 70 = ~439.8 (we use 440)
+            const strokeOffset = 440 - (440 * similarity) / 100;
+            progressCircle.style.strokeDashoffset = strokeOffset;
+            
+            // Set colors based on similarity
+            if (similarity >= 60) {
+                progressCircle.style.stroke = 'var(--accent-success)';
+            } else if (similarity >= 40) {
+                progressCircle.style.stroke = 'var(--accent-blue)';
+            } else {
+                progressCircle.style.stroke = 'var(--accent-error)';
+            }
+
+            // Text parameters
+            document.getElementById('resSimilarity').innerText = `${similarity}%`;
+            document.getElementById('resMatchDecision').innerText = data.face_match.matched ? 'MATCHED (Verified)' : 'MISMATCHED (Rejected)';
+            document.getElementById('resMatchDecision').className = `data-value ${data.face_match.matched ? 'success-text' : 'error-text'}`;
+
+            // Aadhaar values
+            document.getElementById('resProvided').innerText = formatAadhaar(data.aadhaar.provided);
+            document.getElementById('resExtracted').innerText = formatAadhaar(data.aadhaar.extracted);
+            document.getElementById('resAadhaarMatch').innerText = data.aadhaar.matched ? 'MATCHED' : 'MISMATCHED';
+            document.getElementById('resAadhaarMatch').className = `data-value ${data.aadhaar.matched ? 'success-text' : 'error-text'}`;
+
+            // Statistics parameters
+            document.getElementById('statSelfieFace').innerText = data.processing.selfie_face_detected ? 'Yes (1 Face)' : 'No';
+            document.getElementById('statSelfieFace').className = `data-value ${data.processing.selfie_face_detected ? 'success-text' : 'error-text'}`;
+            document.getElementById('statAadhaarFace').innerText = data.processing.aadhaar_face_detected ? 'Yes (1 Face)' : 'No';
+            document.getElementById('statAadhaarFace').className = `data-value ${data.processing.aadhaar_face_detected ? 'success-text' : 'error-text'}`;
+            document.getElementById('statOCR').innerText = data.processing.ocr_success ? 'Success' : 'Failed';
+            document.getElementById('statOCR').className = `data-value ${data.processing.ocr_success ? 'success-text' : 'error-text'}`;
+            document.getElementById('resTime').innerText = `${data.processing.processing_time}s`;
+
+            // Render Optional Third Document Card values
+            const thirdCard = document.getElementById('thirdDocResCard');
+            if (data.third_document && data.third_document.provided) {
+                thirdCard.style.display = 'block';
+                document.getElementById('resThirdName').innerText = data.third_document.extracted_name;
+                document.getElementById('resThirdNameMatch').innerText = data.third_document.name_matched ? 'MATCHED' : 'MISMATCHED';
+                document.getElementById('resThirdNameMatch').className = `data-value ${data.third_document.name_matched ? 'success-text' : 'error-text'}`;
+                document.getElementById('resThirdFaceScore').innerText = `${data.third_document.similarity.toFixed(1)}%`;
+                document.getElementById('resThirdFaceMatch').innerText = data.third_document.matched ? 'MATCHED' : 'MISMATCHED';
+                document.getElementById('resThirdFaceMatch').className = `data-value ${data.third_document.matched ? 'success-text' : 'error-text'}`;
+            } else {
+                thirdCard.style.display = 'none';
+            }
+        }
+
+        // Show errors
+        function showError(msg) {
+            errorBanner.innerText = msg;
+            errorBanner.style.display = 'block';
+            resultDetails.style.display = 'none';
+            placeholder.style.display = 'flex';
+            placeholderText.querySelector('h3').textContent = 'Verification Errored';
+            placeholderText.querySelector('p').textContent = 'Adjust your files or camera and try again.';
+        }
+
+        // Helper formatting
+        function formatAadhaar(num) {
+            if (!num) return '-';
+            return num.replace(/(\d{4})(\d{4})(\d{4})/, '$1 $2 $3');
+        }
+    </script>
+</body>
+</html>

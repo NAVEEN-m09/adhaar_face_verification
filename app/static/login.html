@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KYC Dashboard Admin Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0b10;
+            --bg-secondary: rgba(17, 18, 27, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --accent-color: #3b82f6;
+            --text-primary: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(147, 51, 234, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .login-card {
+            background: var(--bg-secondary);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 3rem 2.5rem;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .input-group {
+            text-align: left;
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            color: white;
+            font-size: 0.95rem;
+            transition: all 0.25s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+        }
+
+        .error-banner {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            padding: 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        button {
+            width: 100%;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border: none;
+            border-radius: 12px;
+            padding: 0.9rem;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.5);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1 class="logo">KYC Portal</h1>
+        <p class="subtitle">Administrative Portal Secure Log In</p>
+        
+        <div id="errorBanner" class="error-banner"></div>
+
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" required placeholder="Enter username">
+            </div>
+            
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="Enter password">
+            </div>
+            
+            <button type="submit">Sign In</button>
+        </form>
+    </div>
+
+    <script>
+        // Check if already authenticated and redirect
+        if (localStorage.getItem("admin_token")) {
+            window.location.href = "dashboard.html";
+        }
+
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const usernameInput = document.getElementById("username").value;
+            const passwordInput = document.getElementById("password").value;
+            const errorBanner = document.getElementById("errorBanner");
+            
+            errorBanner.style.display = "none";
+
+            try {
+                const response = await fetch("/api/login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        username: usernameInput,
+                        password: passwordInput
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem("admin_token", data.access_token);
+                    window.location.href = "dashboard.html";
+                } else {
+                    const data = await response.json();
+                    errorBanner.textContent = data.detail || "Authentication failed.";
+                    errorBanner.style.display = "block";
+                }
+            } catch (err) {
+                errorBanner.textContent = "Network error. Failed to reach server.";
+                errorBanner.style.display = "block";
+            }
+        });
+    </script>
+</body>
+</html>
