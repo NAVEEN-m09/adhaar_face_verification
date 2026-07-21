@@ -318,10 +318,7 @@ async def verify_identity(
             passbook_ifsc = passbook_details["ifsc_code"]
             passbook_address = passbook_details["address"]
 
-            if extracted_third_name and extracted_name:
-                third_name_matched = verify_name_overlap(extracted_name, extracted_third_name)
-            else:
-                third_name_matched = False
+            third_name_matched = True  # Pure extraction for Admin UI; no comparison against Aadhaar name
 
             third_match_res = face_matcher.match_faces(selfie_img, third_img)
             if third_match_res["success"]:
@@ -540,10 +537,7 @@ async def run_async_pipeline(
             passbook_ifsc = passbook_details["ifsc_code"]
             passbook_address = passbook_details["address"]
 
-            if extracted_third_name and extracted_name:
-                third_name_matched = verify_name_overlap(extracted_name, extracted_third_name)
-            else:
-                third_name_matched = False
+            third_name_matched = True  # Pure extraction for Admin UI; no comparison against Aadhaar name
 
             logger.info("Async Pipeline: Comparing selfie and third document...")
             third_match_res = face_matcher.match_faces(selfie_img, third_img)

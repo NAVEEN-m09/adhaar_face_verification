@@ -473,10 +473,6 @@
                             <span>Address:</span>
                             <span style="font-size: 0.8rem; text-align: right; max-width: 180px;">${r.passbook_address || 'N/A'}</span>
                         </div>
-                        <div class="detail-row">
-                            <span>Name Match:</span>
-                            <span class="status-badge ${r.third_doc_name_matched ? 'success' : 'failed'}">${r.third_doc_name_matched ? 'MATCHED' : 'MISMATCH'}</span>
-                        </div>
                     ` : `
                         <div style="color: var(--text-muted); font-size: 0.85rem;">No third document provided.</div>
                     `}
