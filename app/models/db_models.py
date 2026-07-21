@@ -26,6 +26,9 @@ class VerificationRecord(Base):
     extracted_aadhaar = Column(String(255), nullable=True)
     extracted_name = Column(String(255), nullable=True)
     third_doc_name = Column(String(255), nullable=True)
+    passbook_acc_num = Column(String(255), nullable=True)
+    passbook_ifsc = Column(String(255), nullable=True)
+    passbook_address = Column(String(255), nullable=True)
 
     aadhaar_matched = Column(Boolean, default=False)
     third_doc_name_matched = Column(Boolean, default=None, nullable=True)

@@ -455,23 +455,27 @@
                 </div>
 
                 <div class="info-card">
-                    <h4 class="section-label">3rd Document Details</h4>
+                    <h4 class="section-label">3rd Document Details (Passbook)</h4>
                     ${r.has_third_doc ? `
                         <div class="detail-row">
                             <span>Extracted Name:</span>
                             <span>${r.third_doc_name}</span>
                         </div>
                         <div class="detail-row">
+                            <span>Account Number:</span>
+                            <span style="font-family: monospace;">${r.passbook_acc_num || 'N/A'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>IFSC Code:</span>
+                            <span style="font-family: monospace;">${r.passbook_ifsc || 'N/A'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Address:</span>
+                            <span style="font-size: 0.8rem; text-align: right; max-width: 180px;">${r.passbook_address || 'N/A'}</span>
+                        </div>
+                        <div class="detail-row">
                             <span>Name Match:</span>
                             <span class="status-badge ${r.third_doc_name_matched ? 'success' : 'failed'}">${r.third_doc_name_matched ? 'MATCHED' : 'MISMATCH'}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>Selfie Similarity:</span>
-                            <span>${thirdSim}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span>Face Match:</span>
-                            <span class="status-badge ${r.third_doc_matched ? 'success' : 'failed'}">${r.third_doc_matched ? 'MATCHED' : 'MISMATCH'}</span>
                         </div>
                     ` : `
                         <div style="color: var(--text-muted); font-size: 0.85rem;">No third document provided.</div>

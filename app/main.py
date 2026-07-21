@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import numpy as np
 
+from sqlalchemy import text
 from app.config import settings
 from app.utils.logger import logger
 from app.database import engine, Base, SessionLocal
@@ -28,6 +29,15 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database schemas...")
     try:
         Base.metadata.create_all(bind=engine)
+
+        # Auto-migrate missing columns for passbook details if database already exists
+        with engine.connect() as conn:
+            for col in ["passbook_acc_num", "passbook_ifsc", "passbook_address"]:
+                try:
+                    conn.execute(text(f"ALTER TABLE verification_records ADD COLUMN {col} VARCHAR(255)"))
+                    conn.commit()
+                except Exception:
+                    pass
 
         db = SessionLocal()
         try:

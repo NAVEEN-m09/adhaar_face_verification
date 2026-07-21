@@ -144,6 +144,60 @@ def extract_name_from_ocr(text_lines: list[str]) -> str:
 
     return ""
 
+def extract_passbook_details(text_lines: list[str]) -> dict:
+    """
+    Extracts structured client details (Account Name, Account Number, IFSC Code, Address)
+    from Bank Passbook OCR text lines using robust pattern matching.
+    """
+    details = {
+        "account_name": extract_name_from_ocr(text_lines) or None,
+        "account_number": None,
+        "ifsc_code": None,
+        "address": None
+    }
+    
+    full_text = " ".join(text_lines)
+
+    # 1. Extract Account Number (Regex matching 9-18 digits following ACCOUNT/ACC/A/C NO)
+    acc_match = re.search(r"(?:ACCOUNT|A/C|ACC)\s*(?:NO|NUM|NUMBER)?[\.\:\s]*([0-9]{9,18})", full_text, re.IGNORECASE)
+    if acc_match:
+        details["account_number"] = acc_match.group(1)
+    else:
+        # Fallback: standalone digits of length 9 to 18
+        digits_found = re.findall(r"\b[0-9]{9,18}\b", full_text)
+        for cand in digits_found:
+            if len(cand) != 12: # Avoid standard 12-digit Aadhaar length if ambiguous
+                details["account_number"] = cand
+                break
+        if not details["account_number"] and digits_found:
+            details["account_number"] = digits_found[0]
+
+    # 2. Extract IFSC Code (Regex: 4 letters + 0 + 6 alphanumeric)
+    ifsc_match = re.search(r"\b[A-Z]{4}0[A-Z0-9]{6}\b", full_text, re.IGNORECASE)
+    if ifsc_match:
+        details["ifsc_code"] = ifsc_match.group(0).upper()
+
+    # 3. Extract Address lines
+    addr_lines = []
+    capture_addr = False
+    for line in text_lines:
+        if re.search(r"ADDRESS[:\s]*", line, re.IGNORECASE):
+            capture_addr = True
+            cleaned = re.sub(r"^ADDRESS[:\s]*", "", line, flags=re.IGNORECASE).strip()
+            if cleaned:
+                addr_lines.append(cleaned)
+            continue
+        if capture_addr:
+            if re.search(r"(PIN|ZIP|TEL|PHONE|MICR|BRANCH|IFSC|DATE)[:\s]*", line, re.IGNORECASE):
+                capture_addr = False
+            else:
+                addr_lines.append(line.strip())
+                
+    if addr_lines:
+        details["address"] = " ".join(addr_lines[:3])
+
+    return details
+
 def verify_name_overlap(name1: str, name2: str) -> bool:
     """
     Compares two names for overlaps (checking if word tokens intersect).
@@ -258,7 +312,11 @@ async def verify_identity(
             third_img = await read_image_from_upload(third_document)
 
             third_ocr_texts = ocr.extract_text(third_img)
-            extracted_third_name = extract_name_from_ocr(third_ocr_texts)
+            passbook_details = extract_passbook_details(third_ocr_texts)
+            extracted_third_name = passbook_details["account_name"]
+            passbook_acc_num = passbook_details["account_number"]
+            passbook_ifsc = passbook_details["ifsc_code"]
+            passbook_address = passbook_details["address"]
 
             if extracted_third_name and extracted_name:
                 third_name_matched = verify_name_overlap(extracted_name, extracted_third_name)
@@ -284,6 +342,9 @@ async def verify_identity(
             third_doc_result = ThirdDocumentResult(
                 provided=False
             )
+            passbook_acc_num = None
+            passbook_ifsc = None
+            passbook_address = None
 
         record_id = str(uuid.uuid4())
         selfie_filename = f"selfie_{record_id}.bin"
@@ -328,6 +389,9 @@ async def verify_identity(
             extracted_aadhaar=encrypt_text(extracted_aadhaar),
             extracted_name=encrypt_text(extracted_name) if extracted_name else encrypt_text(""),
             third_doc_name=encrypt_text(extracted_third_name) if extracted_third_name else None,
+            passbook_acc_num=encrypt_text(passbook_acc_num) if passbook_acc_num else None,
+            passbook_ifsc=encrypt_text(passbook_ifsc) if passbook_ifsc else None,
+            passbook_address=encrypt_text(passbook_address) if passbook_address else None,
             aadhaar_matched=aadhaar_matched,
             third_doc_name_matched=third_name_matched,
             selfie_path=str(selfie_path),
@@ -474,9 +538,13 @@ async def run_async_pipeline(
             nparr_third = np.frombuffer(third_bytes, np.uint8)
             third_img = cv2.imdecode(nparr_third, cv2.IMREAD_COLOR)
 
-            logger.info("Async Pipeline: Extracting name from third document...")
+            logger.info("Async Pipeline: Extracting details from third document...")
             third_ocr_texts = ocr.extract_text(third_img)
-            extracted_third_name = extract_name_from_ocr(third_ocr_texts)
+            passbook_details = extract_passbook_details(third_ocr_texts)
+            extracted_third_name = passbook_details["account_name"]
+            passbook_acc_num = passbook_details["account_number"]
+            passbook_ifsc = passbook_details["ifsc_code"]
+            passbook_address = passbook_details["address"]
 
             if extracted_third_name and extracted_name:
                 third_name_matched = verify_name_overlap(extracted_name, extracted_third_name)
@@ -491,6 +559,10 @@ async def run_async_pipeline(
             else:
                 third_similarity = 0.0
                 third_face_matched = True  # Passbook text crops do not contain faces; rely on name matching
+        else:
+            passbook_acc_num = None
+            passbook_ifsc = None
+            passbook_address = None
 
         overall_status = "Failed"
         if aadhaar_matched and match_result["matched"]:
@@ -505,6 +577,9 @@ async def run_async_pipeline(
             record.extracted_aadhaar = encrypt_text(extracted_aadhaar)
             record.extracted_name = encrypt_text(extracted_name) if extracted_name else encrypt_text("")
             record.third_doc_name = encrypt_text(extracted_third_name) if extracted_third_name else None
+            record.passbook_acc_num = encrypt_text(passbook_acc_num) if passbook_acc_num else None
+            record.passbook_ifsc = encrypt_text(passbook_ifsc) if passbook_ifsc else None
+            record.passbook_address = encrypt_text(passbook_address) if passbook_address else None
             record.aadhaar_matched = aadhaar_matched
             record.third_doc_name_matched = third_name_matched
             record.selfie_similarity = match_result["similarity"]

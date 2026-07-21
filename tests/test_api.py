@@ -12,8 +12,16 @@ VALID_PNG_BYTES = encoded_img.tobytes()
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_database():
+    from sqlalchemy import text
     from app.database import engine, Base
     Base.metadata.create_all(bind=engine)
+    with engine.connect() as conn:
+        for col in ["passbook_acc_num", "passbook_ifsc", "passbook_address"]:
+            try:
+                conn.execute(text(f"ALTER TABLE verification_records ADD COLUMN {col} VARCHAR(255)"))
+                conn.commit()
+            except Exception:
+                pass
     yield
 
 @pytest.fixture
