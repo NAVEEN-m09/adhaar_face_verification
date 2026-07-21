@@ -103,6 +103,10 @@ def extract_name_from_ocr(text_lines: list[str]) -> str:
         clean_line = line.strip()
         if not clean_line:
             continue
+
+        # Strip common structural prefixes (e.g. NAME(S), NAME:, ACCOUNT HOLDER:, CUSTOMER NAME:)
+        clean_line = re.sub(r"^(NAME\(S\)|NAME[S]?|ACCOUNT HOLDER|HOLDER NAME|CUSTOMER NAME|NAME OF HOLDER)[:\s]*", "", clean_line, flags=re.IGNORECASE).strip()
+
         if any(char.isdigit() for char in clean_line):
             continue
 
@@ -267,7 +271,7 @@ async def verify_identity(
                 third_face_matched = third_match_res["matched"]
             else:
                 third_similarity = 0.0
-                third_face_matched = False
+                third_face_matched = True  # Passbook text crops do not contain faces; rely on name matching
 
             third_doc_result = ThirdDocumentResult(
                 provided=True,
@@ -486,7 +490,7 @@ async def run_async_pipeline(
                 third_face_matched = third_match_res["matched"]
             else:
                 third_similarity = 0.0
-                third_face_matched = False
+                third_face_matched = True  # Passbook text crops do not contain faces; rely on name matching
 
         overall_status = "Failed"
         if aadhaar_matched and match_result["matched"]:
