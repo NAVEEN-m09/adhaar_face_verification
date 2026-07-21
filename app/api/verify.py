@@ -375,13 +375,7 @@ async def verify_identity(
             with open(third_doc_path, "wb") as f:
                 f.write(encrypted_third)
 
-        overall_status = "Failed"
-        if aadhaar_matched and match_result["matched"]:
-            if third_document:
-                if third_name_matched and third_face_matched:
-                    overall_status = "Success"
-            else:
-                overall_status = "Success"
+        overall_status = "Success" if (aadhaar_matched and match_result["matched"]) else "Failed"
 
         record = VerificationRecord(
             id=record_id,
@@ -564,13 +558,7 @@ async def run_async_pipeline(
             passbook_ifsc = None
             passbook_address = None
 
-        overall_status = "Failed"
-        if aadhaar_matched and match_result["matched"]:
-            if third_doc_path:
-                if third_name_matched and third_face_matched:
-                    overall_status = "Success"
-            else:
-                overall_status = "Success"
+        overall_status = "Success" if (aadhaar_matched and match_result["matched"]) else "Failed"
 
         record = db.query(VerificationRecord).filter(VerificationRecord.id == record_id).first()
         if record:
