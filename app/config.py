@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 
     YOLO_MODEL_PATH: str = str(BASE_DIR / "app" / "models" / "best.pt")
     FACE_SIMILARITY_THRESHOLD: float = 0.35
+    LIVENESS_THRESHOLD: float = 0.90
 
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
     OUTPUT_DIR: Path = BASE_DIR / "outputs"

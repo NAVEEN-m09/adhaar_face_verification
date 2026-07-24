@@ -33,6 +33,7 @@ from app.services.photo_cropper import PhotoCropper
 from app.services.ocr import AadhaarOCR
 from app.services.regex_validator import RegexValidator
 from app.services.face_matcher import FaceMatcher
+from app.services.liveness import get_liveness_detector, LivenessDetector
 from app.services.webhook import trigger_webhook
 from app.utils.security_utils import encrypt_text, encrypt_file
 
@@ -231,6 +232,7 @@ async def verify_identity(
     ocr: AadhaarOCR = Depends(get_ocr),
     regex: RegexValidator = Depends(get_regex),
     face_matcher: FaceMatcher = Depends(get_face_matcher),
+    liveness: LivenessDetector = Depends(get_liveness_detector),
     db: Session = Depends(get_db)
 ):
     start_time = time.time()
@@ -244,6 +246,19 @@ async def verify_identity(
 
         logger.info("Reading selfie and Aadhaar images...")
         selfie_img = await read_image_from_upload(selfie_image)
+
+        # Run liveness check immediately
+        logger.info("Running liveness check on selfie...")
+        is_live, liveness_score = liveness.check_liveness(selfie_img)
+        if not is_live:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "error": f"Liveness check failed (score: {liveness_score:.2f}). Presentation attack detected."
+                }
+            )
+
         aadhaar_img = await read_image_from_upload(aadhaar_image)
 
         logger.info("Running Aadhaar card detection...")
@@ -429,6 +444,8 @@ async def verify_identity(
                 selfie_face_detected=match_result["selfie_face_detected"],
                 aadhaar_face_detected=match_result["aadhaar_face_detected"],
                 ocr_success=True,
+                liveness_score=liveness_score,
+                is_live=is_live,
                 processing_time=processing_time
             )
         )
@@ -480,6 +497,13 @@ async def run_async_pipeline(
         selfie_bytes = decrypt_file(enc_selfie_bytes)
         nparr_selfie = np.frombuffer(selfie_bytes, np.uint8)
         selfie_img = cv2.imdecode(nparr_selfie, cv2.IMREAD_COLOR)
+
+        # Run liveness check asynchronously
+        logger.info("Async Pipeline: Running liveness check on selfie...")
+        liveness = LivenessDetector()
+        is_live, liveness_score = liveness.check_liveness(selfie_img)
+        if not is_live:
+            raise Exception(f"Liveness check failed (score: {liveness_score:.2f}). Presentation attack detected.")
 
         logger.info(f"Async Pipeline: Reading encrypted Aadhaar from {aadhaar_path}")
         with open(aadhaar_path, "rb") as f:

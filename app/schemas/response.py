@@ -22,6 +22,8 @@ class ProcessingMeta(BaseModel):
     selfie_face_detected: bool = Field(..., description="Whether a face was detected in the selfie")
     aadhaar_face_detected: bool = Field(..., description="Whether a face was detected in the Aadhaar card photo")
     ocr_success: bool = Field(..., description="Whether the Aadhaar number was successfully extracted via OCR")
+    liveness_score: Optional[float] = Field(None, description="Passive liveness anti-spoofing confidence score (0.0 to 1.0)")
+    is_live: Optional[bool] = Field(None, description="True if selfie meets liveness thresholds, False otherwise")
     processing_time: float = Field(..., description="Processing time in seconds")
 
 class VerificationResponse(BaseModel):

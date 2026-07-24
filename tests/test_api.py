@@ -56,12 +56,16 @@ def mock_app_state():
         "aadhaar_face_detected": True
     }
 
+    mock_liveness = MagicMock()
+    mock_liveness.check_liveness.return_value = (True, 0.95)
+
     app.state.detector = mock_detector
     app.state.perspective = mock_perspective
     app.state.photo_cropper = mock_photo_cropper
     app.state.ocr = mock_ocr
     app.state.regex = mock_regex
     app.state.face_matcher = mock_face_matcher
+    app.state.liveness = mock_liveness
 
     return {
         "detector": mock_detector,
@@ -69,7 +73,8 @@ def mock_app_state():
         "photo_cropper": mock_photo_cropper,
         "ocr": mock_ocr,
         "regex": mock_regex,
-        "face_matcher": mock_face_matcher
+        "face_matcher": mock_face_matcher,
+        "liveness": mock_liveness
     }
 
 def test_root_route():
@@ -99,6 +104,22 @@ def test_verify_endpoint_success(mock_app_state):
     assert res_json["aadhaar"]["provided"] == "3662 1019 8051"
     assert res_json["aadhaar"]["extracted"] == "366210198051"
     assert res_json["aadhaar"]["matched"] is True
+
+def test_verify_endpoint_liveness_failure(mock_app_state):
+    client = TestClient(app)
+    mock_app_state["liveness"].check_liveness.return_value = (False, 0.45)
+
+    files = {
+        "selfie_image": ("selfie.jpg", VALID_PNG_BYTES, "image/jpeg"),
+        "aadhaar_image": ("aadhaar.jpg", VALID_PNG_BYTES, "image/jpeg"),
+    }
+    data = {
+        "aadhaar_number": "3662 1019 8051"
+    }
+
+    response = client.post("/verify", files=files, data=data)
+    assert response.status_code == 400
+    assert "Liveness check failed" in response.json()["error"]
 
 def test_verify_endpoint_invalid_file_type(mock_app_state):
     client = TestClient(app)

@@ -124,3 +124,20 @@ def test_benchmark_metrics(tmp_path):
     assert results["card_detection"]["average_iou"] == 1.0
     assert results["ocr"]["average_cer"] == 0.0
     assert results["threshold_calibration"]["recommended_percentage_threshold"] > 10.0
+
+def test_liveness_detector():
+    from app.services.liveness import LivenessDetector
+    detector = LivenessDetector()
+
+    # Test with valid image dimensions
+    high_texture_img = np.random.randint(0, 256, (300, 300, 3), dtype=np.uint8)
+    is_live, score = detector.check_liveness(high_texture_img)
+    # Randomly generated pixel noise has extremely high variance and no display screen line frequency spikes
+    assert score > 0.50
+
+    # Test flat image (spoofing printout mockup with 0 Laplacian variance)
+    flat_img = np.ones((300, 300, 3), dtype=np.uint8) * 128
+    is_live_flat, score_flat = detector.check_liveness(flat_img)
+    assert is_live_flat is False
+    assert score_flat < 0.90
+
