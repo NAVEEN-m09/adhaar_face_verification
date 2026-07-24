@@ -24,6 +24,8 @@ class ProcessingMeta(BaseModel):
     ocr_success: bool = Field(..., description="Whether the Aadhaar number was successfully extracted via OCR")
     liveness_score: Optional[float] = Field(None, description="Passive liveness anti-spoofing confidence score (0.0 to 1.0)")
     is_live: Optional[bool] = Field(None, description="True if selfie meets liveness thresholds, False otherwise")
+    layout_type: Optional[str] = Field(None, description="Classified layout type (front, back, long_letter, digital_pdf)")
+    qr_decoded: Optional[bool] = Field(None, description="Whether the secure QR code was successfully decoded")
     processing_time: float = Field(..., description="Processing time in seconds")
 
 class VerificationResponse(BaseModel):

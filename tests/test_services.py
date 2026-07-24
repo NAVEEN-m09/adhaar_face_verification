@@ -141,3 +141,27 @@ def test_liveness_detector():
     assert is_live_flat is False
     assert score_flat < 0.90
 
+def test_layout_classifier():
+    from app.services.layout_classifier import DocumentLayoutClassifier
+    classifier = DocumentLayoutClassifier()
+
+    # 1. Long letter (aspect ratio > 1.25)
+    tall_img = np.zeros((400, 200, 3), dtype=np.uint8)
+    assert classifier.classify(tall_img, face_detected=False, ocr_texts=[]) == "long_letter"
+
+    # 2. Back side classification
+    std_img = np.zeros((200, 300, 3), dtype=np.uint8)
+    assert classifier.classify(std_img, face_detected=False, ocr_texts=["Address: 123 Street", "Pin Code: 560001"]) == "back"
+
+    # 3. Front side
+    assert classifier.classify(std_img, face_detected=True, ocr_texts=["Government of India"]) == "front"
+
+def test_qr_decoder():
+    from app.services.qr_decoder import AadhaarQRDecoder
+    decoder = AadhaarQRDecoder()
+
+    # Empty image should return None
+    assert decoder.decode(None) is None
+    assert decoder.decode(np.zeros((10, 10, 3), dtype=np.uint8)) is None
+
+

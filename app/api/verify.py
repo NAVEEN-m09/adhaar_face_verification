@@ -34,6 +34,8 @@ from app.services.ocr import AadhaarOCR
 from app.services.regex_validator import RegexValidator
 from app.services.face_matcher import FaceMatcher
 from app.services.liveness import get_liveness_detector, LivenessDetector
+from app.services.layout_classifier import get_layout_classifier, DocumentLayoutClassifier
+from app.services.qr_decoder import get_qr_decoder, AadhaarQRDecoder
 from app.services.webhook import trigger_webhook
 from app.utils.security_utils import encrypt_text, encrypt_file
 
@@ -56,6 +58,12 @@ def get_regex(request: Request) -> RegexValidator:
 
 def get_face_matcher(request: Request) -> FaceMatcher:
     return request.app.state.face_matcher
+
+def get_layout_classifier(request: Request) -> DocumentLayoutClassifier:
+    return request.app.state.layout_classifier
+
+def get_qr_decoder(request: Request) -> AadhaarQRDecoder:
+    return request.app.state.qr_decoder
 
 def extract_name_from_mrz(line: str) -> Optional[str]:
     """
@@ -233,6 +241,8 @@ async def verify_identity(
     regex: RegexValidator = Depends(get_regex),
     face_matcher: FaceMatcher = Depends(get_face_matcher),
     liveness: LivenessDetector = Depends(get_liveness_detector),
+    layout_classifier: DocumentLayoutClassifier = Depends(get_layout_classifier),
+    qr_decoder: AadhaarQRDecoder = Depends(get_qr_decoder),
     db: Session = Depends(get_db)
 ):
     start_time = time.time()
@@ -264,6 +274,25 @@ async def verify_identity(
         logger.info("Running Aadhaar card detection...")
         card_crop, initial_photo_crop, detect_status = detector.detect(aadhaar_img)
 
+        # Classify document layout
+        face_present = (initial_photo_crop is not None)
+        layout_type = layout_classifier.classify(aadhaar_img, face_detected=face_present, ocr_texts=[])
+
+        if layout_type == "back":
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "error": "Back side of Aadhaar card detected. Please upload the front side containing the photo."
+                }
+            )
+
+        if layout_type == "long_letter":
+            logger.info("Long letter detected. Cropping card area from vertical layout...")
+            h_l, w_l, _ = aadhaar_img.shape
+            cropped_letter = aadhaar_img[int(h_l * 0.65):h_l, 0:w_l]
+            card_crop, initial_photo_crop, detect_status = detector.detect(cropped_letter)
+
         if card_crop is None:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -286,18 +315,31 @@ async def verify_identity(
         temp_photo_path = save_temp_image(photo_crop, prefix="cropped_photo")
         temp_files.append(temp_photo_path)
 
+        # Scan for secure QR code fallback
+        logger.info("Scanning document for secure QR code fallback...")
+        qr_data = qr_decoder.decode(corrected_card)
+        qr_decoded = qr_data is not None
+
         logger.info("Running PaddleOCR on corrected Aadhaar card...")
         ocr_texts = ocr.extract_text(corrected_card)
-        if not ocr_texts:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={"success": False, "error": "OCR failed"}
-            )
 
-        extracted_name = extract_name_from_ocr(ocr_texts)
+        extracted_name = None
+        extracted_aadhaar = None
 
-        logger.info("Extracting Aadhaar number via Regex and Verhoeff...")
-        extracted_aadhaar = regex.extract_aadhaar_number(ocr_texts)
+        if qr_decoded and "aadhaar_number" in qr_data:
+            extracted_aadhaar = qr_data["aadhaar_number"]
+            extracted_name = qr_data.get("name", "")
+            logger.info(f"Using secure QR code data as primary verified fallback: UID={extracted_aadhaar}")
+        else:
+            if not ocr_texts:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"success": False, "error": "OCR failed"}
+                )
+            extracted_name = extract_name_from_ocr(ocr_texts)
+            logger.info("Extracting Aadhaar number via Regex and Verhoeff...")
+            extracted_aadhaar = regex.extract_aadhaar_number(ocr_texts)
+
         if not extracted_aadhaar:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -446,6 +488,8 @@ async def verify_identity(
                 ocr_success=True,
                 liveness_score=liveness_score,
                 is_live=is_live,
+                layout_type=layout_type,
+                qr_decoded=qr_decoded,
                 processing_time=processing_time
             )
         )
@@ -514,6 +558,21 @@ async def run_async_pipeline(
 
         logger.info("Async Pipeline: Running Aadhaar card detection...")
         card_crop, initial_photo_crop, detect_status = detector.detect(aadhaar_img)
+
+        # Classify document layout
+        layout_classifier = DocumentLayoutClassifier()
+        face_present = (initial_photo_crop is not None)
+        layout_type = layout_classifier.classify(aadhaar_img, face_detected=face_present, ocr_texts=[])
+
+        if layout_type == "back":
+            raise Exception("Back side of Aadhaar card detected. Please upload the front side containing the photo.")
+
+        if layout_type == "long_letter":
+            logger.info("Async Pipeline: Long letter detected. Cropping bottom third card section...")
+            h_l, w_l, _ = aadhaar_img.shape
+            cropped_letter = aadhaar_img[int(h_l * 0.65):h_l, 0:w_l]
+            card_crop, initial_photo_crop, detect_status = detector.detect(cropped_letter)
+
         if card_crop is None:
             raise Exception("Aadhaar card not detected")
 
@@ -529,15 +588,29 @@ async def run_async_pipeline(
         temp_photo_path = save_temp_image(photo_crop, prefix="cropped_photo_async")
         temp_files.append(temp_photo_path)
 
+        # Scan for secure QR code fallback
+        logger.info("Async Pipeline: Scanning document for secure QR code fallback...")
+        qr_decoder = AadhaarQRDecoder()
+        qr_data = qr_decoder.decode(corrected_card)
+        qr_decoded = qr_data is not None
+
         logger.info("Async Pipeline: Running OCR...")
         ocr_texts = ocr.extract_text(corrected_card)
-        if not ocr_texts:
-            raise Exception("OCR failed")
 
-        extracted_name = extract_name_from_ocr(ocr_texts)
+        extracted_name = None
+        extracted_aadhaar = None
 
-        logger.info("Async Pipeline: Extracting Aadhaar UID...")
-        extracted_aadhaar = regex.extract_aadhaar_number(ocr_texts)
+        if qr_decoded and "aadhaar_number" in qr_data:
+            extracted_aadhaar = qr_data["aadhaar_number"]
+            extracted_name = qr_data.get("name", "")
+            logger.info(f"Async Pipeline: Using secure QR code data as primary verified fallback: UID={extracted_aadhaar}")
+        else:
+            if not ocr_texts:
+                raise Exception("OCR failed")
+            extracted_name = extract_name_from_ocr(ocr_texts)
+            logger.info("Async Pipeline: Extracting Aadhaar UID...")
+            extracted_aadhaar = regex.extract_aadhaar_number(ocr_texts)
+
         if not extracted_aadhaar:
             raise Exception("Aadhaar number not found")
 

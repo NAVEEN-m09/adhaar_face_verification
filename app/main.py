@@ -20,6 +20,8 @@ from app.services.ocr import AadhaarOCR
 from app.services.regex_validator import RegexValidator
 from app.services.face_matcher import FaceMatcher
 from app.services.liveness import LivenessDetector
+from app.services.layout_classifier import DocumentLayoutClassifier
+from app.services.qr_decoder import AadhaarQRDecoder
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -64,6 +66,8 @@ async def lifespan(app: FastAPI):
         app.state.regex = RegexValidator()
         app.state.face_matcher = FaceMatcher()
         app.state.liveness = LivenessDetector()
+        app.state.layout_classifier = DocumentLayoutClassifier()
+        app.state.qr_decoder = AadhaarQRDecoder()
 
         logger.info("Pre-warming models to eliminate cold-start latency...")
         dummy_img = np.zeros((100, 100, 3), dtype=np.uint8)

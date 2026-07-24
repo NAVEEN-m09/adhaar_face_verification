@@ -59,6 +59,12 @@ def mock_app_state():
     mock_liveness = MagicMock()
     mock_liveness.check_liveness.return_value = (True, 0.95)
 
+    mock_layout_classifier = MagicMock()
+    mock_layout_classifier.classify.return_value = "front"
+
+    mock_qr_decoder = MagicMock()
+    mock_qr_decoder.decode.return_value = None
+
     app.state.detector = mock_detector
     app.state.perspective = mock_perspective
     app.state.photo_cropper = mock_photo_cropper
@@ -66,6 +72,8 @@ def mock_app_state():
     app.state.regex = mock_regex
     app.state.face_matcher = mock_face_matcher
     app.state.liveness = mock_liveness
+    app.state.layout_classifier = mock_layout_classifier
+    app.state.qr_decoder = mock_qr_decoder
 
     return {
         "detector": mock_detector,
@@ -74,7 +82,9 @@ def mock_app_state():
         "ocr": mock_ocr,
         "regex": mock_regex,
         "face_matcher": mock_face_matcher,
-        "liveness": mock_liveness
+        "liveness": mock_liveness,
+        "layout_classifier": mock_layout_classifier,
+        "qr_decoder": mock_qr_decoder
     }
 
 def test_root_route():
@@ -261,5 +271,43 @@ def test_export_records(mock_app_state):
     assert response.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     assert "attachment" in response.headers["content-disposition"]
     assert "verification_logs.xlsx" in response.headers["content-disposition"]
+
+def test_verify_identity_back_layout_rejection(mock_app_state):
+    client = TestClient(app)
+    mock_app_state["layout_classifier"].classify.return_value = "back"
+
+    files = {
+        "selfie_image": ("selfie.jpg", VALID_PNG_BYTES, "image/jpeg"),
+        "aadhaar_image": ("aadhaar.jpg", VALID_PNG_BYTES, "image/jpeg"),
+    }
+    data = {
+        "aadhaar_number": "3662 1019 8051"
+    }
+
+    response = client.post("/verify", files=files, data=data)
+    assert response.status_code == 400
+    assert "Back side of Aadhaar card detected" in response.json()["error"]
+
+def test_verify_identity_qr_fallback(mock_app_state):
+    client = TestClient(app)
+    mock_app_state["qr_decoder"].decode.return_value = {
+        "aadhaar_number": "548984365730",
+        "name": "TEST USER QR"
+    }
+
+    files = {
+        "selfie_image": ("selfie.jpg", VALID_PNG_BYTES, "image/jpeg"),
+        "aadhaar_image": ("aadhaar.jpg", VALID_PNG_BYTES, "image/jpeg"),
+    }
+    data = {
+        "aadhaar_number": "5489 8436 5730"
+    }
+
+    response = client.post("/verify", files=files, data=data)
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["aadhaar"]["extracted"] == "548984365730"
+    assert res_json["aadhaar"]["extracted_name"] == "TEST USER QR"
+
 
 
