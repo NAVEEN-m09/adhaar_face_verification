@@ -7,6 +7,7 @@ import numpy as np
 from typing import Optional
 from fastapi import APIRouter, File, UploadFile, Form, Depends, Request, status, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.schemas.response import (
@@ -259,7 +260,7 @@ async def verify_identity(
 
         # Run liveness check immediately
         logger.info("Running liveness check on selfie...")
-        is_live, liveness_score = liveness.check_liveness(selfie_img)
+        is_live, liveness_score = await run_in_threadpool(liveness.check_liveness, selfie_img)
         if not is_live:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -272,11 +273,11 @@ async def verify_identity(
         aadhaar_img = await read_image_from_upload(aadhaar_image)
 
         logger.info("Running Aadhaar card detection...")
-        card_crop, initial_photo_crop, detect_status = detector.detect(aadhaar_img)
+        card_crop, initial_photo_crop, detect_status = await run_in_threadpool(detector.detect, aadhaar_img)
 
         # Classify document layout
         face_present = (initial_photo_crop is not None)
-        layout_type = layout_classifier.classify(aadhaar_img, face_detected=face_present, ocr_texts=[])
+        layout_type = await run_in_threadpool(layout_classifier.classify, aadhaar_img, face_present, [])
 
         if layout_type == "back":
             return JSONResponse(
@@ -291,7 +292,7 @@ async def verify_identity(
             logger.info("Long letter detected. Cropping card area from vertical layout...")
             h_l, w_l, _ = aadhaar_img.shape
             cropped_letter = aadhaar_img[int(h_l * 0.65):h_l, 0:w_l]
-            card_crop, initial_photo_crop, detect_status = detector.detect(cropped_letter)
+            card_crop, initial_photo_crop, detect_status = await run_in_threadpool(detector.detect, cropped_letter)
 
         if card_crop is None:
             return JSONResponse(
@@ -300,11 +301,11 @@ async def verify_identity(
             )
 
         logger.info("Applying perspective correction on card...")
-        corrected_card = perspective.correct(card_crop)
+        corrected_card = await run_in_threadpool(perspective.correct, card_crop)
 
         logger.info("Cropping face photo from corrected Aadhaar card...")
         model_to_use = None if detect_status["fallback_used"] else detector.model
-        photo_crop = photo_cropper.crop_photo(corrected_card, yolo_model=model_to_use)
+        photo_crop = await run_in_threadpool(photo_cropper.crop_photo, corrected_card, model_to_use)
 
         if photo_crop is None or photo_crop.size == 0:
             return JSONResponse(
@@ -317,11 +318,11 @@ async def verify_identity(
 
         # Scan for secure QR code fallback
         logger.info("Scanning document for secure QR code fallback...")
-        qr_data = qr_decoder.decode(corrected_card)
+        qr_data = await run_in_threadpool(qr_decoder.decode, corrected_card)
         qr_decoded = qr_data is not None
 
         logger.info("Running PaddleOCR on corrected Aadhaar card...")
-        ocr_texts = ocr.extract_text(corrected_card)
+        ocr_texts = await run_in_threadpool(ocr.extract_text, corrected_card)
 
         extracted_name = None
         extracted_aadhaar = None
@@ -349,7 +350,7 @@ async def verify_identity(
         aadhaar_matched, match_msg = regex.verify_match(extracted_aadhaar, aadhaar_number)
 
         logger.info("Matching face embeddings between selfie and Aadhaar photo...")
-        match_result = face_matcher.match_faces(selfie_img, photo_crop)
+        match_result = await run_in_threadpool(face_matcher.match_faces, selfie_img, photo_crop)
 
         if not match_result["success"]:
             return JSONResponse(
@@ -368,7 +369,7 @@ async def verify_identity(
             logger.info("Processing optional third document (passbook/passport)...")
             third_img = await read_image_from_upload(third_document)
 
-            third_ocr_texts = ocr.extract_text(third_img)
+            third_ocr_texts = await run_in_threadpool(ocr.extract_text, third_img)
             passbook_details = extract_passbook_details(third_ocr_texts)
             extracted_third_name = passbook_details["account_name"]
             passbook_acc_num = passbook_details["account_number"]
@@ -377,7 +378,7 @@ async def verify_identity(
 
             third_name_matched = True  # Pure extraction for Admin UI; no comparison against Aadhaar name
 
-            third_match_res = face_matcher.match_faces(selfie_img, third_img)
+            third_match_res = await run_in_threadpool(face_matcher.match_faces, selfie_img, third_img)
             if third_match_res["success"]:
                 third_similarity = third_match_res["similarity"]
                 third_face_matched = third_match_res["matched"]

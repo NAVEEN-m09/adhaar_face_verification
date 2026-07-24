@@ -43,6 +43,14 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# Validate that secrets are overridden in production environments
+if not settings.DEBUG:
+    import warnings
+    if settings.ENCRYPTION_KEY == "gS8S-jOPh2B895p1c_h0l3t0k3n_v3ry_s3cur3_k3y_g3n=":
+        warnings.warn("Security Warning: Using default hardcoded fallback value for ENCRYPTION_KEY in production mode!")
+    if settings.JWT_SECRET_KEY == "supersecretjwtkeyforadminlogindashboardtoken":
+        warnings.warn("Security Warning: Using default hardcoded fallback value for JWT_SECRET_KEY in production mode!")
+
 settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 settings.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 (BASE_DIR / "app" / "models").mkdir(parents=True, exist_ok=True)
