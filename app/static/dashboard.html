@@ -289,6 +289,37 @@
             display: block;
         }
 
+        .review-actions-card {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.75rem;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 0.6rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: opacity 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .action-btn:hover {
+            opacity: 0.9;
+        }
+
+        .action-btn.approve {
+            background: #10b981;
+            color: #ffffff;
+        }
+
+        .action-btn.reject {
+            background: #ef4444;
+            color: #ffffff;
+        }
+
         .info-card {
             background: rgba(255,255,255,0.03);
             border-radius: 12px;
@@ -444,6 +475,17 @@
                     <span class="detail-time">Created: ${dateStr}</span>
                 </div>
 
+                ${r.status.toLowerCase() === 'review' ? `
+                <div class="info-card" style="border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.05);">
+                    <h4 class="section-label" style="color: #fbbf24; margin-bottom: 0.25rem;">Pending Manual Review (HITL)</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">This borderline record requires manual decision. Please verify the photo matching and OCR text fields below.</p>
+                    <div class="review-actions-card">
+                        <button class="action-btn approve" onclick="adjudicateRecord('${r.id}', 'Approve')">Approve</button>
+                        <button class="action-btn reject" onclick="adjudicateRecord('${r.id}', 'Reject')">Reject</button>
+                    </div>
+                </div>
+                ` : ''}
+
                 <div class="info-card">
                     <h4 class="section-label">Aadhaar Data</h4>
                     <div class="detail-row">
@@ -563,6 +605,38 @@
             } catch (err) {
                 console.error("Export error:", err);
                 alert("An error occurred during export.");
+            }
+        }
+
+        async function adjudicateRecord(recordId, action) {
+            if (!confirm(`Are you sure you want to manually ${action.toLowerCase()} this record?`)) {
+                return;
+            }
+            try {
+                const response = await fetch(`/api/records/${recordId}/review`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ action: action })
+                });
+
+                if (response.ok) {
+                    alert(`Record has been successfully ${action === 'Approve' ? 'Approved' : 'Rejected'}.`);
+                    fetchRecords(); // Refresh the table
+                    document.getElementById("detailPanel").innerHTML = `
+                        <div class="detail-placeholder">
+                            <p>Select a verification row to view full decrypted metadata and images.</p>
+                        </div>
+                    `;
+                } else {
+                    const err = await response.json();
+                    alert("Failed to review record: " + (err.detail || "Unknown error"));
+                }
+            } catch (err) {
+                console.error("Adjudication network error:", err);
+                alert("Network error: failed to submit review decision.");
             }
         }
 

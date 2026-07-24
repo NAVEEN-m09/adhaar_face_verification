@@ -367,6 +367,53 @@ def test_verify_identity_childhood_photo_borderline_secondary_id(mock_app_state)
     res_json = response.json()
     assert res_json["secondary_id_required"] is True
 
+def test_manual_adjudication_route():
+    from app.database import SessionLocal
+    from app.models.db_models import VerificationRecord
+    import uuid
+
+    client = TestClient(app)
+    db = SessionLocal()
+
+    # 1. Create a borderline record in Review status
+    rec_id = str(uuid.uuid4())
+    record = VerificationRecord(
+        id=rec_id,
+        provided_aadhaar="encrypted",
+        extracted_aadhaar="encrypted",
+        status="Review",
+        selfie_similarity=33.0,
+        aadhaar_matched=True,
+        selfie_path="dummy_selfie.bin",
+        aadhaar_path="dummy_aadhaar.bin"
+    )
+    db.add(record)
+    db.commit()
+    db.close()
+
+    # 2. Log in as admin
+    login_resp = client.post("/api/login", json={"username": "admin", "password": "admin123"})
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
+
+    # 3. Adjudicate review
+    review_resp = client.post(
+        f"/api/records/{rec_id}/review",
+        json={"action": "Approve"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert review_resp.status_code == 200
+    assert review_resp.json()["success"] is True
+
+    # 4. Check db update
+    db = SessionLocal()
+    updated = db.query(VerificationRecord).filter(VerificationRecord.id == rec_id).first()
+    assert updated.status == "Success"
+    db.delete(updated)
+    db.commit()
+    db.close()
+
+
 
 
 

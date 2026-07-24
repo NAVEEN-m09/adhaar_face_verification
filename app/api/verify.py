@@ -466,16 +466,23 @@ async def verify_identity(
         cos_sim = match_result.get("cosine_similarity", 0.0)
         secondary_id_required = False
         
+        cos_sim = match_result.get("cosine_similarity", 0.0)
+        secondary_id_required = False
+
+        if age_discrepancy:
+            auto_approve_threshold = 0.35
+        else:
+            auto_approve_threshold = 0.42
+
         if aadhaar_matched:
-            if 0.25 <= cos_sim <= 0.35 and age_discrepancy:
-                overall_status = "Review"
-                secondary_id_required = True
-            elif cos_sim >= target_threshold:
+            if cos_sim >= auto_approve_threshold:
                 overall_status = "Success"
-            elif 0.25 <= cos_sim <= 0.40:
-                overall_status = "Review"
-            else:
+            elif cos_sim < 0.25:
                 overall_status = "Failed"
+            else:
+                overall_status = "Review"
+                if age_discrepancy and 0.25 <= cos_sim <= 0.35:
+                    secondary_id_required = True
         else:
             overall_status = "Failed"
 
@@ -736,15 +743,18 @@ async def run_async_pipeline(
             
         cos_sim = match_result.get("cosine_similarity", 0.0)
         
+        if age_discrepancy:
+            auto_approve_threshold = 0.35
+        else:
+            auto_approve_threshold = 0.42
+
         if aadhaar_matched:
-            if 0.25 <= cos_sim <= 0.35 and age_discrepancy:
-                overall_status = "Review"
-            elif cos_sim >= target_threshold:
+            if cos_sim >= auto_approve_threshold:
                 overall_status = "Success"
-            elif 0.25 <= cos_sim <= 0.40:
-                overall_status = "Review"
-            else:
+            elif cos_sim < 0.25:
                 overall_status = "Failed"
+            else:
+                overall_status = "Review"
         else:
             overall_status = "Failed"
 

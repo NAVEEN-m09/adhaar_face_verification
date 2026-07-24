@@ -204,3 +204,62 @@ def get_decrypted_image(
     except Exception as e:
         logger.error(f"Error serving decrypted image: {str(e)}")
         raise HTTPException(status_code=500, detail="Error decrypting image resource")
+
+class ReviewActionRequest(BaseModel):
+    action: str  # "Approve" or "Reject"
+
+@router.post("/api/records/{record_id}/review")
+def review_record(
+    record_id: str,
+    payload: ReviewActionRequest,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin)
+):
+    """
+    API route to manually resolve borderline Amber/Review cases.
+    Updates database record status and logs to outputs/manual_reviews.json for reinforcement.
+    """
+    record = db.query(VerificationRecord).filter(VerificationRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+
+    action = payload.action.strip().capitalize()
+    if action not in ["Approve", "Reject"]:
+        raise HTTPException(status_code=400, detail="Invalid action. Action must be 'Approve' or 'Reject'.")
+
+    # Update record status in DB
+    record.status = "Success" if action == "Approve" else "Failed"
+    db.commit()
+
+    # Reinforcement Logging: write to outputs/manual_reviews.json
+    import json
+    from datetime import datetime
+    
+    log_file = settings.OUTPUT_DIR / "manual_reviews.json"
+    log_entry = {
+        "record_id": record_id,
+        "action": action,
+        "reviewed_by": current_user.username,
+        "timestamp": datetime.now().isoformat(),
+        "selfie_similarity": record.selfie_similarity,
+        "aadhaar_matched": record.aadhaar_matched
+    }
+
+    try:
+        reviews = []
+        if log_file.exists():
+            with open(log_file, "r") as f:
+                try:
+                    reviews = json.load(f)
+                except Exception:
+                    reviews = []
+        
+        reviews.append(log_entry)
+        with open(log_file, "w") as f:
+            json.dump(reviews, f, indent=4)
+    except Exception as e:
+        logger.error(f"Failed to save manual review reinforcement log: {str(e)}")
+
+    logger.info(f"HITL: Record {record_id} manual review completed. Resolution: {record.status} by {current_user.username}")
+    return {"success": True, "status": record.status}
+
