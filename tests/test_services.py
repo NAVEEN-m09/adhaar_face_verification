@@ -75,3 +75,52 @@ def test_perspective_and_cropper_fallbacks():
     photo = cropper.crop_photo(corrected)
     assert photo.shape[1] > 0
     assert photo.shape[0] > 0
+
+def test_benchmark_metrics(tmp_path):
+    from app.utils.benchmark import calculate_iou, levenshtein_distance, calculate_cer_wer, run_benchmark
+    import json
+
+    # 1. Test IoU
+    box1 = [10.0, 10.0, 50.0, 50.0]
+    box2 = [20.0, 20.0, 60.0, 60.0]
+    iou = calculate_iou(box1, box2)
+    assert 0.38 <= iou <= 0.40
+
+    # 2. Test Levenshtein distance
+    assert levenshtein_distance("kitten", "sitting") == 3
+    assert levenshtein_distance("NAVEEN UNKAL", "NAVEEN M UNKAL") == 2
+
+    # 3. Test CER/WER
+    cer, wer = calculate_cer_wer("NAVEEN UNKAL", "NAVEEN UNKAL")
+    assert cer == 0.0
+    assert wer == 0.0
+
+    # 4. Test run_benchmark
+    gt_data = [
+        {
+            "image_id": "test_1",
+            "expected_card_box": [0, 0, 100, 100],
+            "predicted_card_box": [0, 0, 100, 100],
+            "expected_name": "JOHN DOE",
+            "predicted_name": "JOHN DOE",
+            "similarity_percentage": 85.0,
+            "is_same_person": True
+        },
+        {
+            "image_id": "test_2",
+            "expected_card_box": [0, 0, 100, 100],
+            "predicted_card_box": [0, 0, 100, 100],
+            "expected_name": "MOCK USER",
+            "predicted_name": "MOCK USER",
+            "similarity_percentage": 10.0,
+            "is_same_person": False
+        }
+    ]
+    gt_file = tmp_path / "gt.json"
+    with open(gt_file, "w") as f:
+        json.dump(gt_data, f)
+
+    results = run_benchmark(str(tmp_path), str(gt_file))
+    assert results["card_detection"]["average_iou"] == 1.0
+    assert results["ocr"]["average_cer"] == 0.0
+    assert results["threshold_calibration"]["recommended_percentage_threshold"] > 10.0

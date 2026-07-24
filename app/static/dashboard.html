@@ -191,6 +191,11 @@
             color: #f87171;
         }
 
+        .status-badge.review {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+
         /* Detail Panel */
         .detail-panel {
             background: var(--bg-secondary);
@@ -397,7 +402,12 @@
 
             tbody.innerHTML = records.map((r, index) => {
                 const dateStr = new Date(r.created_at).toLocaleString();
-                const statusClass = r.status.toLowerCase() === 'success' ? 'success' : 'failed';
+                let statusClass = 'failed';
+                if (r.status.toLowerCase() === 'success') {
+                    statusClass = 'success';
+                } else if (r.status.toLowerCase() === 'review') {
+                    statusClass = 'review';
+                }
                 const selfieSim = r.selfie_similarity ? `${r.selfie_similarity.toFixed(1)}%` : 'N/A';
                 
                 return `

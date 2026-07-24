@@ -372,7 +372,16 @@ async def verify_identity(
             with open(third_doc_path, "wb") as f:
                 f.write(encrypted_third)
 
-        overall_status = "Success" if (aadhaar_matched and match_result["matched"]) else "Failed"
+        cos_sim = match_result.get("cosine_similarity", 0.0)
+        if aadhaar_matched:
+            if 0.25 <= cos_sim <= 0.40:
+                overall_status = "Review"
+            elif cos_sim > 0.40:
+                overall_status = "Success"
+            else:
+                overall_status = "Failed"
+        else:
+            overall_status = "Failed"
 
         record = VerificationRecord(
             id=record_id,
@@ -552,7 +561,16 @@ async def run_async_pipeline(
             passbook_ifsc = None
             passbook_address = None
 
-        overall_status = "Success" if (aadhaar_matched and match_result["matched"]) else "Failed"
+        cos_sim = match_result.get("cosine_similarity", 0.0)
+        if aadhaar_matched:
+            if 0.25 <= cos_sim <= 0.40:
+                overall_status = "Review"
+            elif cos_sim > 0.40:
+                overall_status = "Success"
+            else:
+                overall_status = "Failed"
+        else:
+            overall_status = "Failed"
 
         record = db.query(VerificationRecord).filter(VerificationRecord.id == record_id).first()
         if record:

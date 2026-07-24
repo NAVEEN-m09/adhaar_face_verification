@@ -104,6 +104,7 @@ class FaceMatcher:
         return {
             "success": True,
             "similarity": similarity_percentage,
+            "cosine_similarity": cos_sim,
             "confidence": confidence,
             "matched": matched,
             "selfie_face_detected": True,
