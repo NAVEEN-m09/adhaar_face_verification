@@ -29,17 +29,15 @@ class FaceMatcher:
             logger.error(f"Failed to initialize InsightFace: {str(e)}")
             raise e
 
-    def get_embedding(self, img: np.ndarray, label: str = "image") -> Tuple[Optional[np.ndarray], str]:
+    def get_embedding(self, img: np.ndarray, label: str = "image") -> Tuple[Optional[np.ndarray], Optional[float], str]:
         """
-        Detects a face in the image and returns its normalized embedding.
-        If multiple faces are found (e.g. due to ghost watermark photos on passports),
-        selects the largest face by bounding box area.
+        Detects a face in the image and returns its normalized embedding along with its estimated age.
         """
         try:
             faces = self.app.get(img)
 
             if len(faces) == 0:
-                return None, f"No face detected in {label}."
+                return None, None, f"No face detected in {label}."
 
             selected_face = faces[0]
             if len(faces) > 1:
@@ -61,19 +59,21 @@ class FaceMatcher:
                         embedding = embedding / norm
 
             if embedding is None:
-                return None, f"Failed to generate embedding for face in {label}."
+                return None, None, f"Failed to generate embedding for face in {label}."
 
-            return embedding, "Success"
+            # Extract estimated face age
+            age = float(selected_face.age) if hasattr(selected_face, "age") and selected_face.age is not None else None
+            return embedding, age, "Success"
         except Exception as e:
             logger.error(f"InsightFace error on {label}: {str(e)}")
-            return None, f"Error processing face in {label}: {str(e)}"
+            return None, None, f"Error processing face in {label}: {str(e)}"
 
     def match_faces(self, selfie_img: np.ndarray, card_photo_img: np.ndarray) -> Dict[str, Any]:
         """
         Compares the selfie face against the Aadhaar card photo face.
         Returns match status, confidence, and similarity.
         """
-        selfie_emb, err_msg = self.get_embedding(selfie_img, "selfie")
+        selfie_emb, selfie_age, err_msg = self.get_embedding(selfie_img, "selfie")
         if selfie_emb is None:
             return {
                 "success": False,
@@ -82,7 +82,7 @@ class FaceMatcher:
                 "aadhaar_face_detected": None
             }
 
-        card_emb, err_msg = self.get_embedding(card_photo_img, "Aadhaar photo")
+        card_emb, card_age, err_msg = self.get_embedding(card_photo_img, "Aadhaar photo")
         if card_emb is None:
             return {
                 "success": False,
@@ -108,5 +108,7 @@ class FaceMatcher:
             "confidence": confidence,
             "matched": matched,
             "selfie_face_detected": True,
-            "aadhaar_face_detected": True
+            "aadhaar_face_detected": True,
+            "selfie_age": selfie_age,
+            "card_photo_age": card_age
         }

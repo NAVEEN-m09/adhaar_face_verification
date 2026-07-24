@@ -429,12 +429,51 @@ async def verify_identity(
             with open(third_doc_path, "wb") as f:
                 f.write(encrypted_third)
 
+        # Extract YOB
+        import datetime
+        current_year = datetime.datetime.now().year
+        yob = None
+        if qr_decoded and "dob" in qr_data:
+            dob_str = qr_data["dob"]
+            yob_match = re.search(r'\b(19\d{2}|20\d{2})\b', dob_str)
+            if yob_match:
+                yob = int(yob_match.group(1))
+        
+        if not yob and ocr_texts:
+            dob_match = re.search(r'\b(19\d{2}|20\d{2})\b', " ".join(ocr_texts))
+            if dob_match:
+                yob = int(dob_match.group(1))
+                
+        ocr_age = current_year - yob if yob else None
+        
+        # Age estimation parameters
+        selfie_age = match_result.get("selfie_age")
+        card_age = match_result.get("card_photo_age")
+        
+        # Check childhood photo discrepancy
+        age_discrepancy = False
+        if selfie_age is not None and card_age is not None:
+            if selfie_age >= 18.0 and card_age <= 13.0:
+                age_discrepancy = True
+        elif ocr_age is not None and ocr_age >= 18 and card_age is not None and card_age <= 13.0:
+            age_discrepancy = True
+
+        target_threshold = settings.FACE_SIMILARITY_THRESHOLD
+        if age_discrepancy:
+            target_threshold = 0.28  # Lower similarity threshold to account for childhood photo mismatch
+            logger.info("Childhood photo age discrepancy detected. Adjusting similarity threshold to 0.28.")
+            
         cos_sim = match_result.get("cosine_similarity", 0.0)
+        secondary_id_required = False
+        
         if aadhaar_matched:
-            if 0.25 <= cos_sim <= 0.40:
+            if 0.25 <= cos_sim <= 0.35 and age_discrepancy:
                 overall_status = "Review"
-            elif cos_sim > 0.40:
+                secondary_id_required = True
+            elif cos_sim >= target_threshold:
                 overall_status = "Success"
+            elif 0.25 <= cos_sim <= 0.40:
+                overall_status = "Review"
             else:
                 overall_status = "Failed"
         else:
@@ -482,6 +521,7 @@ async def verify_identity(
                 extracted_name=extracted_name or None
             ),
             third_document=third_doc_result,
+            secondary_id_required=secondary_id_required,
             processing=ProcessingMeta(
                 selfie_face_detected=match_result["selfie_face_detected"],
                 aadhaar_face_detected=match_result["aadhaar_face_detected"],
@@ -490,6 +530,8 @@ async def verify_identity(
                 is_live=is_live,
                 layout_type=layout_type,
                 qr_decoded=qr_decoded,
+                selfie_estimated_age=selfie_age,
+                card_photo_estimated_age=card_age,
                 processing_time=processing_time
             )
         )
@@ -658,12 +700,49 @@ async def run_async_pipeline(
             passbook_ifsc = None
             passbook_address = None
 
+        # Extract YOB
+        import datetime
+        current_year = datetime.datetime.now().year
+        yob = None
+        if qr_decoded and "dob" in qr_data:
+            dob_str = qr_data["dob"]
+            yob_match = re.search(r'\b(19\d{2}|20\d{2})\b', dob_str)
+            if yob_match:
+                yob = int(yob_match.group(1))
+        
+        if not yob and ocr_texts:
+            dob_match = re.search(r'\b(19\d{2}|20\d{2})\b', " ".join(ocr_texts))
+            if dob_match:
+                yob = int(dob_match.group(1))
+                
+        ocr_age = current_year - yob if yob else None
+        
+        # Age estimation parameters
+        selfie_age = match_result.get("selfie_age")
+        card_age = match_result.get("card_photo_age")
+        
+        # Check childhood photo discrepancy
+        age_discrepancy = False
+        if selfie_age is not None and card_age is not None:
+            if selfie_age >= 18.0 and card_age <= 13.0:
+                age_discrepancy = True
+        elif ocr_age is not None and ocr_age >= 18 and card_age is not None and card_age <= 13.0:
+            age_discrepancy = True
+
+        target_threshold = settings.FACE_SIMILARITY_THRESHOLD
+        if age_discrepancy:
+            target_threshold = 0.28  # Lower similarity threshold to account for childhood photo mismatch
+            logger.info("Async Pipeline: Childhood photo age discrepancy detected. Adjusting similarity threshold to 0.28.")
+            
         cos_sim = match_result.get("cosine_similarity", 0.0)
+        
         if aadhaar_matched:
-            if 0.25 <= cos_sim <= 0.40:
+            if 0.25 <= cos_sim <= 0.35 and age_discrepancy:
                 overall_status = "Review"
-            elif cos_sim > 0.40:
+            elif cos_sim >= target_threshold:
                 overall_status = "Success"
+            elif 0.25 <= cos_sim <= 0.40:
+                overall_status = "Review"
             else:
                 overall_status = "Failed"
         else:

@@ -50,10 +50,13 @@ def mock_app_state():
     mock_face_matcher.match_faces.return_value = {
         "success": True,
         "similarity": 88.50,
+        "cosine_similarity": 0.77,
         "confidence": 97.00,
         "matched": True,
         "selfie_face_detected": True,
-        "aadhaar_face_detected": True
+        "aadhaar_face_detected": True,
+        "selfie_age": 28.0,
+        "card_photo_age": 25.0
     }
 
     mock_liveness = MagicMock()
@@ -308,6 +311,62 @@ def test_verify_identity_qr_fallback(mock_app_state):
     res_json = response.json()
     assert res_json["aadhaar"]["extracted"] == "548984365730"
     assert res_json["aadhaar"]["extracted_name"] == "TEST USER QR"
+
+def test_verify_identity_childhood_photo_calibration(mock_app_state):
+    client = TestClient(app)
+    mock_app_state["face_matcher"].match_faces.return_value = {
+        "success": True,
+        "similarity": 65.0,
+        "cosine_similarity": 0.30,
+        "confidence": 95.0,
+        "matched": False, # Raw matched is false since 0.30 < 0.35 threshold
+        "selfie_face_detected": True,
+        "aadhaar_face_detected": True,
+        "selfie_age": 28.0,
+        "card_photo_age": 8.0
+    }
+
+    files = {
+        "selfie_image": ("selfie.jpg", VALID_PNG_BYTES, "image/jpeg"),
+        "aadhaar_image": ("aadhaar.jpg", VALID_PNG_BYTES, "image/jpeg"),
+    }
+    data = {
+        "aadhaar_number": "3662 1019 8051"
+    }
+
+    response = client.post("/verify", files=files, data=data)
+    assert response.status_code == 200
+    res_json = response.json()
+    # The output matches because threshold was dynamically adjusted to 0.28, and 0.30 >= 0.28!
+    assert res_json["secondary_id_required"] is True
+
+def test_verify_identity_childhood_photo_borderline_secondary_id(mock_app_state):
+    client = TestClient(app)
+    mock_app_state["face_matcher"].match_faces.return_value = {
+        "success": True,
+        "similarity": 63.0,
+        "cosine_similarity": 0.26,
+        "confidence": 95.0,
+        "matched": False,
+        "selfie_face_detected": True,
+        "aadhaar_face_detected": True,
+        "selfie_age": 28.0,
+        "card_photo_age": 8.0
+    }
+
+    files = {
+        "selfie_image": ("selfie.jpg", VALID_PNG_BYTES, "image/jpeg"),
+        "aadhaar_image": ("aadhaar.jpg", VALID_PNG_BYTES, "image/jpeg"),
+    }
+    data = {
+        "aadhaar_number": "3662 1019 8051"
+    }
+
+    response = client.post("/verify", files=files, data=data)
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["secondary_id_required"] is True
+
 
 
 

@@ -26,6 +26,8 @@ class ProcessingMeta(BaseModel):
     is_live: Optional[bool] = Field(None, description="True if selfie meets liveness thresholds, False otherwise")
     layout_type: Optional[str] = Field(None, description="Classified layout type (front, back, long_letter, digital_pdf)")
     qr_decoded: Optional[bool] = Field(None, description="Whether the secure QR code was successfully decoded")
+    selfie_estimated_age: Optional[float] = Field(None, description="Estimated age of the face in the live selfie")
+    card_photo_estimated_age: Optional[float] = Field(None, description="Estimated age of the face on the Aadhaar card photo")
     processing_time: float = Field(..., description="Processing time in seconds")
 
 class VerificationResponse(BaseModel):
@@ -34,6 +36,7 @@ class VerificationResponse(BaseModel):
     face_match: FaceMatchResult = Field(..., description="Results of the face matching component")
     aadhaar: AadhaarResult = Field(..., description="Results of the Aadhaar OCR verification")
     third_document: Optional[ThirdDocumentResult] = Field(None, description="Results of the third document verification")
+    secondary_id_required: Optional[bool] = Field(False, description="True if age discrepancy is detected and a secondary ID is required")
     processing: ProcessingMeta = Field(..., description="Metadata detailing pipeline executions")
 
 class ErrorResponse(BaseModel):

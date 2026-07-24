@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
         dummy_img = np.zeros((100, 100, 3), dtype=np.uint8)
         _, _, _ = app.state.detector.detect(dummy_img)
         _ = app.state.ocr.extract_text(dummy_img)
-        _, _ = app.state.face_matcher.get_embedding(dummy_img, "dummy")
+        _, _, _ = app.state.face_matcher.get_embedding(dummy_img, "dummy")
         _, _ = app.state.liveness.check_liveness(dummy_img)
 
         logger.info("All models loaded and pre-warmed successfully. Server ready.")

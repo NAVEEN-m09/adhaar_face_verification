@@ -164,4 +164,21 @@ def test_qr_decoder():
     assert decoder.decode(None) is None
     assert decoder.decode(np.zeros((10, 10, 3), dtype=np.uint8)) is None
 
+def test_face_matcher_age_estimation():
+    from app.services.face_matcher import FaceMatcher
+    from unittest.mock import MagicMock
+    matcher = FaceMatcher()
+    
+    # Mock self.app.get to return a mock face object with age
+    mock_face = MagicMock()
+    mock_face.normed_embedding = np.ones((512,), dtype=np.float32)
+    mock_face.age = 25.0
+    matcher.app.get = MagicMock(return_value=[mock_face])
+    
+    dummy_img = np.zeros((100, 100, 3), dtype=np.uint8)
+    res = matcher.match_faces(dummy_img, dummy_img)
+    assert res["success"] is True
+    assert res["selfie_age"] == 25.0
+    assert res["card_photo_age"] == 25.0
+
 
