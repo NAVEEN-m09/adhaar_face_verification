@@ -1,3 +1,6 @@
+from app.utils.gpu_setup import setup_gpu_dlls
+setup_gpu_dlls()
+
 import pytest
 import numpy as np
 from app.services.regex_validator import RegexValidator

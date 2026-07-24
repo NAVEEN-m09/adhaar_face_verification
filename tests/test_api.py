@@ -1,3 +1,6 @@
+from app.utils.gpu_setup import setup_gpu_dlls
+setup_gpu_dlls()
+
 import pytest
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient

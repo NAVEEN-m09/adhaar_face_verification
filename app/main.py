@@ -1,3 +1,6 @@
+from app.utils.gpu_setup import setup_gpu_dlls
+setup_gpu_dlls()
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
