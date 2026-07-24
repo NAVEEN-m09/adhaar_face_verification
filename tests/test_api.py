@@ -370,6 +370,43 @@ def test_verify_identity_childhood_photo_borderline_secondary_id(mock_app_state)
     res_json = response.json()
     assert res_json["secondary_id_required"] is True
 
+def test_verify_identity_full_image_fallback(mock_app_state):
+    client = TestClient(app)
+    
+    # Mock detector failure (card_crop = None)
+    mock_app_state["detector"].detect.return_value = (None, None, {"fallback_used": True})
+    mock_app_state["layout_classifier"].classify.return_value = "front"
+    mock_app_state["photo_cropper"].crop_photo.return_value = None
+    
+    # Mock face_matcher.app.get to return a face bounding box for fallback crop
+    mock_face = MagicMock()
+    mock_face.bbox = np.array([10, 10, 50, 50])
+    mock_app_state["face_matcher"].app.get.return_value = [mock_face]
+    
+    mock_app_state["face_matcher"].match_faces.return_value = {
+        "success": True,
+        "similarity": 95.0,
+        "cosine_similarity": 0.82,
+        "confidence": 98.0,
+        "matched": True,
+        "selfie_face_detected": True,
+        "aadhaar_face_detected": True
+    }
+    
+    files = {
+        "selfie_image": ("selfie.jpg", VALID_PNG_BYTES, "image/jpeg"),
+        "aadhaar_image": ("aadhaar.jpg", VALID_PNG_BYTES, "image/jpeg"),
+    }
+    data = {
+        "aadhaar_number": "3662 1019 8051"
+    }
+    
+    response = client.post("/verify", files=files, data=data)
+    assert response.status_code == 200
+    res_json = response.json()
+    assert res_json["success"] is True
+
+
 def test_manual_adjudication_route():
     from app.database import SessionLocal
     from app.models.db_models import VerificationRecord

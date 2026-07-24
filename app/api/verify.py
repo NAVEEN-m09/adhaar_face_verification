@@ -295,10 +295,9 @@ async def verify_identity(
             card_crop, initial_photo_crop, detect_status = await run_in_threadpool(detector.detect, cropped_letter)
 
         if card_crop is None:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={"success": False, "error": "Aadhaar card not detected"}
-            )
+            logger.warning("Aadhaar detector failed to locate card boundaries. Using full image as fallback...")
+            card_crop = aadhaar_img
+            detect_status = {"fallback_used": True}
 
         logger.info("Applying perspective correction on card...")
         corrected_card = await run_in_threadpool(perspective.correct, card_crop)
@@ -306,6 +305,26 @@ async def verify_identity(
         logger.info("Cropping face photo from corrected Aadhaar card...")
         model_to_use = None if detect_status["fallback_used"] else detector.model
         photo_crop = await run_in_threadpool(photo_cropper.crop_photo, corrected_card, model_to_use)
+
+        if photo_crop is None or photo_crop.size == 0:
+            logger.info("Layout-based photo crop failed. Attempting face-detection fallback on card...")
+            try:
+                faces = await run_in_threadpool(face_matcher.app.get, corrected_card)
+                if len(faces) > 0:
+                    bbox = faces[0].bbox.astype(int)
+                    fh, fw = corrected_card.shape[:2]
+                    pad_w = int((bbox[2] - bbox[0]) * 0.15)
+                    pad_h = int((bbox[3] - bbox[1]) * 0.15)
+                    
+                    x1 = max(0, bbox[0] - pad_w)
+                    y1 = max(0, bbox[1] - pad_h)
+                    x2 = min(fw, bbox[2] + pad_w)
+                    y2 = min(fh, bbox[3] + pad_h)
+                    
+                    photo_crop = corrected_card[y1:y2, x1:x2]
+                    logger.info("Successfully cropped face photo using face-detection fallback.")
+            except Exception as e:
+                logger.error(f"Face detection fallback crop failed: {str(e)}")
 
         if photo_crop is None or photo_crop.size == 0:
             return JSONResponse(
@@ -624,7 +643,9 @@ async def run_async_pipeline(
             card_crop, initial_photo_crop, detect_status = detector.detect(cropped_letter)
 
         if card_crop is None:
-            raise Exception("Aadhaar card not detected")
+            logger.warning("Async Pipeline: Aadhaar detector failed to locate card boundaries. Using full image as fallback...")
+            card_crop = aadhaar_img
+            detect_status = {"fallback_used": True}
 
         logger.info("Async Pipeline: Correcting card perspective...")
         corrected_card = perspective.correct(card_crop)
@@ -632,6 +653,27 @@ async def run_async_pipeline(
         logger.info("Async Pipeline: Cropping face photo...")
         model_to_use = None if detect_status["fallback_used"] else detector.model
         photo_crop = photo_cropper.crop_photo(corrected_card, yolo_model=model_to_use)
+
+        if photo_crop is None or photo_crop.size == 0:
+            logger.info("Async Pipeline: Layout-based photo crop failed. Attempting face-detection fallback on card...")
+            try:
+                faces = face_matcher.app.get(corrected_card)
+                if len(faces) > 0:
+                    bbox = faces[0].bbox.astype(int)
+                    fh, fw = corrected_card.shape[:2]
+                    pad_w = int((bbox[2] - bbox[0]) * 0.15)
+                    pad_h = int((bbox[3] - bbox[1]) * 0.15)
+                    
+                    x1 = max(0, bbox[0] - pad_w)
+                    y1 = max(0, bbox[1] - pad_h)
+                    x2 = min(fw, bbox[2] + pad_w)
+                    y2 = min(fh, bbox[3] + pad_h)
+                    
+                    photo_crop = corrected_card[y1:y2, x1:x2]
+                    logger.info("Async Pipeline: Successfully cropped face photo using face-detection fallback.")
+            except Exception as e:
+                logger.error(f"Async Pipeline: Face detection fallback crop failed: {str(e)}")
+
         if photo_crop is None or photo_crop.size == 0:
             raise Exception("No Aadhaar photo detected")
 
