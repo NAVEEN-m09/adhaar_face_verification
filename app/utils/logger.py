@@ -34,6 +34,11 @@ class SensitiveDataFilter(logging.Filter):
             return f"[EMBEDDING ARRAY OF SIZE {len(val)}]"
         return val
 
+from contextvars import ContextVar
+
+# Async/Thread-safe context variable to store the current verification transaction/record ID
+record_id_var: ContextVar[str] = ContextVar("record_id", default="")
+
 class StructuredJSONFormatter(logging.Formatter):
     """
     Formatter that outputs log records as JSON objects.
@@ -45,6 +50,12 @@ class StructuredJSONFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
+        
+        # Dynamically inject record_id if set in the active execution context
+        rid = record_id_var.get()
+        if rid:
+            log_data["record_id"] = rid
+            
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
         return json.dumps(log_data)

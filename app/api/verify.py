@@ -24,7 +24,7 @@ from app.utils.image_utils import (
     save_temp_image,
     delete_temp_files
 )
-from app.utils.logger import logger
+from app.utils.logger import logger, record_id_var
 from app.config import settings
 from app.database import get_db, SessionLocal
 from app.models.db_models import VerificationRecord
@@ -248,6 +248,8 @@ async def verify_identity(
 ):
     start_time = time.time()
     temp_files = []
+    record_id = str(uuid.uuid4())
+    ctx_token = record_id_var.set(record_id)
 
     try:
         validate_image_file(selfie_image)
@@ -420,7 +422,6 @@ async def verify_identity(
             passbook_ifsc = None
             passbook_address = None
 
-        record_id = str(uuid.uuid4())
         selfie_filename = f"selfie_{record_id}.bin"
         aadhaar_filename = f"aadhaar_{record_id}.bin"
         third_doc_filename = f"third_{record_id}.bin" if third_document else None
@@ -578,6 +579,8 @@ async def verify_identity(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"success": False, "error": f"Internal processing error: {str(e)}"}
         )
+    finally:
+        record_id_var.reset(ctx_token)
         delete_temp_files(*temp_files)
 
 async def run_async_pipeline(
@@ -603,6 +606,7 @@ async def run_async_pipeline(
     temp_files = []
 
     db = SessionLocal()
+    ctx_token = record_id_var.set(record_id)
     try:
         logger.info(f"Async Pipeline: Reading encrypted selfie from {selfie_path}")
         with open(selfie_path, "rb") as f:
@@ -825,6 +829,7 @@ async def run_async_pipeline(
             db.commit()
 
     finally:
+        record_id_var.reset(ctx_token)
         db.close()
         delete_temp_files(*temp_files)
         await trigger_webhook(record_id, custom_callback_url=callback_url)
