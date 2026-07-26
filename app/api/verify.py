@@ -337,9 +337,15 @@ async def verify_identity(
         temp_photo_path = save_temp_image(photo_crop, prefix="cropped_photo")
         temp_files.append(temp_photo_path)
 
-        # Scan for secure QR code fallback
+        # Scan for secure QR code fallback (try raw image, card crop, and corrected card to handle resolution scaling)
         logger.info("Scanning document for secure QR code fallback...")
-        qr_data = await run_in_threadpool(qr_decoder.decode, corrected_card)
+        qr_data = await run_in_threadpool(qr_decoder.decode, aadhaar_img)
+        if qr_data is None and card_crop is not None:
+            logger.info("QR scan on raw image failed. Retrying on cropped high-res card...")
+            qr_data = await run_in_threadpool(qr_decoder.decode, card_crop)
+        if qr_data is None:
+            logger.info("QR scan on card crop failed. Retrying on perspective-corrected card...")
+            qr_data = await run_in_threadpool(qr_decoder.decode, corrected_card)
         qr_decoded = qr_data is not None
 
         logger.info("Running PaddleOCR on corrected Aadhaar card...")
