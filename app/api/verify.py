@@ -487,13 +487,13 @@ async def verify_identity(
 
         # Set thresholds dynamically
         if age_discrepancy:
-            target_threshold = 0.15  # Target threshold for match decision
-            auto_approve_threshold = 0.32
-            auto_reject_threshold = 0.15
+            target_threshold = 0.15  # Target threshold for match decision (57.5%)
+            auto_approve_threshold = 0.32  # Auto-approve if >= 0.32 (66.0%)
+            auto_reject_threshold = 0.15  # Auto-reject if < 0.15 (57.5%)
         else:
-            target_threshold = settings.FACE_SIMILARITY_THRESHOLD  # 0.35
-            auto_approve_threshold = 0.42
-            auto_reject_threshold = 0.25
+            target_threshold = 0.18  # Target threshold for match decision (59.0%)
+            auto_approve_threshold = 0.42  # Auto-approve if >= 0.42 (71.0%)
+            auto_reject_threshold = 0.18  # Auto-reject if < 0.18 (59.0%)
 
         logger.info(f"Childhood photo check: age_discrepancy={age_discrepancy}, target_threshold={target_threshold}")
 
@@ -795,9 +795,9 @@ async def run_async_pipeline(
             auto_approve_threshold = 0.32
             auto_reject_threshold = 0.15
         else:
-            target_threshold = settings.FACE_SIMILARITY_THRESHOLD  # 0.35
+            target_threshold = 0.18  # Target threshold for match decision
             auto_approve_threshold = 0.42
-            auto_reject_threshold = 0.25
+            auto_reject_threshold = 0.18
 
         logger.info(f"Async Pipeline: Childhood photo check: age_discrepancy={age_discrepancy}, target_threshold={target_threshold}")
 
