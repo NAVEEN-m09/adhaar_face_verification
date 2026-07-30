@@ -477,38 +477,37 @@ async def verify_identity(
         selfie_age = match_result.get("selfie_age")
         card_age = match_result.get("card_photo_age")
         
-        # Check childhood photo discrepancy
+        # Check childhood photo discrepancy (allow card photo age up to 16 to account for model estimation bias)
         age_discrepancy = False
         if selfie_age is not None and card_age is not None:
-            if selfie_age >= 18.0 and card_age <= 13.0:
+            if selfie_age >= 18.0 and card_age <= 16.0:
                 age_discrepancy = True
-        elif ocr_age is not None and ocr_age >= 18 and card_age is not None and card_age <= 13.0:
+        elif ocr_age is not None and ocr_age >= 18 and card_age is not None and card_age <= 16.0:
             age_discrepancy = True
 
-        target_threshold = settings.FACE_SIMILARITY_THRESHOLD
+        # Set thresholds dynamically
         if age_discrepancy:
-            target_threshold = 0.28  # Lower similarity threshold to account for childhood photo mismatch
-            logger.info("Childhood photo age discrepancy detected. Adjusting similarity threshold to 0.28.")
-            
-        cos_sim = match_result.get("cosine_similarity", 0.0)
-        secondary_id_required = False
-        
-        cos_sim = match_result.get("cosine_similarity", 0.0)
-        secondary_id_required = False
-
-        if age_discrepancy:
-            auto_approve_threshold = 0.35
+            target_threshold = 0.15  # Target threshold for match decision
+            auto_approve_threshold = 0.32
+            auto_reject_threshold = 0.15
         else:
+            target_threshold = settings.FACE_SIMILARITY_THRESHOLD  # 0.35
             auto_approve_threshold = 0.42
+            auto_reject_threshold = 0.25
+
+        logger.info(f"Childhood photo check: age_discrepancy={age_discrepancy}, target_threshold={target_threshold}")
+
+        cos_sim = match_result.get("cosine_similarity", 0.0)
+        secondary_id_required = False
 
         if aadhaar_matched:
             if cos_sim >= auto_approve_threshold:
                 overall_status = "Success"
-            elif cos_sim < 0.25:
+            elif cos_sim < auto_reject_threshold:
                 overall_status = "Failed"
             else:
                 overall_status = "Review"
-                if age_discrepancy and 0.25 <= cos_sim <= 0.35:
+                if age_discrepancy and auto_reject_threshold <= cos_sim <= auto_approve_threshold:
                     secondary_id_required = True
         else:
             overall_status = "Failed"
@@ -782,30 +781,32 @@ async def run_async_pipeline(
         selfie_age = match_result.get("selfie_age")
         card_age = match_result.get("card_photo_age")
         
-        # Check childhood photo discrepancy
+        # Check childhood photo discrepancy (allow card photo age up to 16 to account for model estimation bias)
         age_discrepancy = False
         if selfie_age is not None and card_age is not None:
-            if selfie_age >= 18.0 and card_age <= 13.0:
+            if selfie_age >= 18.0 and card_age <= 16.0:
                 age_discrepancy = True
-        elif ocr_age is not None and ocr_age >= 18 and card_age is not None and card_age <= 13.0:
+        elif ocr_age is not None and ocr_age >= 18 and card_age is not None and card_age <= 16.0:
             age_discrepancy = True
 
-        target_threshold = settings.FACE_SIMILARITY_THRESHOLD
+        # Set thresholds dynamically
         if age_discrepancy:
-            target_threshold = 0.28  # Lower similarity threshold to account for childhood photo mismatch
-            logger.info("Async Pipeline: Childhood photo age discrepancy detected. Adjusting similarity threshold to 0.28.")
-            
-        cos_sim = match_result.get("cosine_similarity", 0.0)
-        
-        if age_discrepancy:
-            auto_approve_threshold = 0.35
+            target_threshold = 0.15  # Target threshold for match decision
+            auto_approve_threshold = 0.32
+            auto_reject_threshold = 0.15
         else:
+            target_threshold = settings.FACE_SIMILARITY_THRESHOLD  # 0.35
             auto_approve_threshold = 0.42
+            auto_reject_threshold = 0.25
+
+        logger.info(f"Async Pipeline: Childhood photo check: age_discrepancy={age_discrepancy}, target_threshold={target_threshold}")
+
+        cos_sim = match_result.get("cosine_similarity", 0.0)
 
         if aadhaar_matched:
             if cos_sim >= auto_approve_threshold:
                 overall_status = "Success"
-            elif cos_sim < 0.25:
+            elif cos_sim < auto_reject_threshold:
                 overall_status = "Failed"
             else:
                 overall_status = "Review"
