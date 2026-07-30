@@ -36,11 +36,18 @@ async def lifespan(app: FastAPI):
     try:
         Base.metadata.create_all(bind=engine)
 
-        # Auto-migrate missing columns for passbook details if database already exists
+        # Auto-migrate missing columns if database already exists
         with engine.connect() as conn:
-            for col in ["passbook_acc_num", "passbook_ifsc", "passbook_address"]:
+            for col, col_type in [
+                ("passbook_acc_num", "VARCHAR(255)"),
+                ("passbook_ifsc", "VARCHAR(255)"),
+                ("passbook_address", "VARCHAR(255)"),
+                ("selfie_age", "FLOAT"),
+                ("card_photo_age", "FLOAT"),
+                ("liveness_score", "FLOAT")
+            ]:
                 try:
-                    conn.execute(text(f"ALTER TABLE verification_records ADD COLUMN {col} VARCHAR(255)"))
+                    conn.execute(text(f"ALTER TABLE verification_records ADD COLUMN {col} {col_type}"))
                     conn.commit()
                 except Exception:
                     pass

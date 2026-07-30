@@ -231,6 +231,14 @@ def review_record(
     record.status = "Success" if action == "Approve" else "Failed"
     db.commit()
 
+    # Retrain classifier model on newly labeled data (Reinforcement/HITL learning)
+    try:
+        from app.services.kyc_classifier import kyc_classifier
+        retrain_res = kyc_classifier.retrain_model(db)
+        logger.info(f"Auto-retrained KYC Classifier model: {retrain_res}")
+    except Exception as e:
+        logger.error(f"Error auto-retraining classifier: {str(e)}")
+
     # Reinforcement Logging: write to outputs/manual_reviews.json
     import json
     from datetime import datetime

@@ -485,29 +485,37 @@ async def verify_identity(
         elif ocr_age is not None and ocr_age >= 18 and card_age is not None and card_age <= 16.0:
             age_discrepancy = True
 
-        # Set thresholds dynamically
+        # Set thresholds dynamically for Option A logic (deterministic threshold display)
         if age_discrepancy:
             target_threshold = 0.15  # Target threshold for match decision (57.5%)
-            auto_approve_threshold = 0.32  # Auto-approve if >= 0.32 (66.0%)
-            auto_reject_threshold = 0.15  # Auto-reject if < 0.15 (57.5%)
         else:
             target_threshold = 0.18  # Target threshold for match decision (59.0%)
-            auto_approve_threshold = 0.42  # Auto-approve if >= 0.42 (71.0%)
-            auto_reject_threshold = 0.18  # Auto-reject if < 0.18 (59.0%)
 
         logger.info(f"Childhood photo check: age_discrepancy={age_discrepancy}, target_threshold={target_threshold}")
+
+        # Option B: Supervised classification
+        from app.services.kyc_classifier import kyc_classifier
+        age_gap = abs(selfie_age - card_age) if (selfie_age is not None and card_age is not None) else 0.0
+        liveness_val = liveness_score if liveness_score is not None else 1.0
+        
+        prob = kyc_classifier.predict_match(
+            similarity=match_result["similarity"],
+            age_gap=age_gap,
+            liveness=liveness_val
+        )
+        logger.info(f"KYC Classifier prediction: probability={prob:.4f}")
 
         cos_sim = match_result.get("cosine_similarity", 0.0)
         secondary_id_required = False
 
         if aadhaar_matched:
-            if cos_sim >= auto_approve_threshold:
+            if prob >= 0.85:
                 overall_status = "Success"
-            elif cos_sim < auto_reject_threshold:
+            elif prob < 0.40:
                 overall_status = "Failed"
             else:
                 overall_status = "Review"
-                if age_discrepancy and auto_reject_threshold <= cos_sim <= auto_approve_threshold:
+                if age_discrepancy:
                     secondary_id_required = True
         else:
             overall_status = "Failed"
@@ -528,6 +536,9 @@ async def verify_identity(
             third_doc_path=str(third_doc_path) if third_doc_path else None,
             selfie_similarity=match_result["similarity"],
             third_doc_similarity=third_similarity,
+            selfie_age=selfie_age,
+            card_photo_age=card_age,
+            liveness_score=liveness_score,
             status=overall_status,
             webhook_status="Pending"
         )
@@ -789,24 +800,32 @@ async def run_async_pipeline(
         elif ocr_age is not None and ocr_age >= 18 and card_age is not None and card_age <= 16.0:
             age_discrepancy = True
 
-        # Set thresholds dynamically
+        # Set thresholds dynamically for Option A logic (deterministic threshold display)
         if age_discrepancy:
             target_threshold = 0.15  # Target threshold for match decision
-            auto_approve_threshold = 0.32
-            auto_reject_threshold = 0.15
         else:
             target_threshold = 0.18  # Target threshold for match decision
-            auto_approve_threshold = 0.42
-            auto_reject_threshold = 0.18
 
         logger.info(f"Async Pipeline: Childhood photo check: age_discrepancy={age_discrepancy}, target_threshold={target_threshold}")
+
+        # Option B: Supervised classification
+        from app.services.kyc_classifier import kyc_classifier
+        age_gap = abs(selfie_age - card_age) if (selfie_age is not None and card_age is not None) else 0.0
+        liveness_val = liveness_score if liveness_score is not None else 1.0
+        
+        prob = kyc_classifier.predict_match(
+            similarity=match_result["similarity"],
+            age_gap=age_gap,
+            liveness=liveness_val
+        )
+        logger.info(f"Async Pipeline: KYC Classifier prediction: probability={prob:.4f}")
 
         cos_sim = match_result.get("cosine_similarity", 0.0)
 
         if aadhaar_matched:
-            if cos_sim >= auto_approve_threshold:
+            if prob >= 0.85:
                 overall_status = "Success"
-            elif cos_sim < auto_reject_threshold:
+            elif prob < 0.40:
                 overall_status = "Failed"
             else:
                 overall_status = "Review"
@@ -825,6 +844,9 @@ async def run_async_pipeline(
             record.third_doc_name_matched = third_name_matched
             record.selfie_similarity = match_result["similarity"]
             record.third_doc_similarity = third_similarity
+            record.selfie_age = selfie_age
+            record.card_photo_age = card_age
+            record.liveness_score = liveness_score
             record.status = overall_status
             db.commit()
 

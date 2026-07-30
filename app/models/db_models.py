@@ -39,6 +39,10 @@ class VerificationRecord(Base):
 
     selfie_similarity = Column(Float, nullable=True)
     third_doc_similarity = Column(Float, nullable=True)
+    
+    selfie_age = Column(Float, nullable=True)
+    card_photo_age = Column(Float, nullable=True)
+    liveness_score = Column(Float, nullable=True)
 
     status = Column(String(50), default="Pending")
     error_message = Column(String(255), nullable=True)
