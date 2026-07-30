@@ -546,7 +546,8 @@ async def verify_identity(
             record_id=record_id,
             face_match=FaceMatchResult(
                 similarity=match_result["similarity"],
-                matched=match_result["matched"]
+                matched=cos_sim >= target_threshold,
+                threshold=round((target_threshold + 1.0) / 2.0 * 100.0, 2)
             ),
             aadhaar=AadhaarResult(
                 provided=aadhaar_number,

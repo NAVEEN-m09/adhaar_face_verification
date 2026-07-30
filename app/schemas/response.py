@@ -4,6 +4,7 @@ from typing import Optional
 class FaceMatchResult(BaseModel):
     similarity: float = Field(..., description="Similarity percentage between selfie and Aadhaar photo (0.0 to 100.0)")
     matched: bool = Field(..., description="True if similarity meets or exceeds threshold, False otherwise")
+    threshold: float = Field(..., description="The similarity threshold percentage used for the decision")
 
 class AadhaarResult(BaseModel):
     provided: str = Field(..., description="The user-supplied 12-digit Aadhaar number")

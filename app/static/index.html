@@ -606,7 +606,7 @@
                         </div>
                         <div class="data-row">
                             <span class="data-label">Decision Threshold</span>
-                            <span class="data-value">40.00%</span>
+                            <span class="data-value" id="resThreshold">40.00%</span>
                         </div>
                         <div class="data-row">
                             <span class="data-label">Result Decision</span>
@@ -1001,6 +1001,7 @@
 
             // Text parameters
             document.getElementById('resSimilarity').innerText = `${similarity}%`;
+            document.getElementById('resThreshold').innerText = `${data.face_match.threshold.toFixed(2)}%`;
             document.getElementById('resMatchDecision').innerText = data.face_match.matched ? 'MATCHED (Verified)' : 'MISMATCHED (Rejected)';
             document.getElementById('resMatchDecision').className = `data-value ${data.face_match.matched ? 'success-text' : 'error-text'}`;
 
